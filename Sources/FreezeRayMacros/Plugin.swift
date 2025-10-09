@@ -4,7 +4,7 @@ import SwiftSyntaxMacros
 @main
 struct FreezeRayPlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
-        SealMacro.self,
+        FreezeMacro.self,
         AutoTestsMacro.self,
     ]
 }

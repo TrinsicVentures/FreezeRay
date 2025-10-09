@@ -35,6 +35,7 @@ let package = Package(
             name: "FreezeRayTests",
             dependencies: [
                 "FreezeRay",
+                "FreezeRayMacros",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
             ]
         ),

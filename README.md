@@ -2,310 +2,410 @@
 
 > Freeze SwiftData schemas for safe production releases
 
-FreezeRay is a **Swift macro package** that generates test methods to freeze SwiftData schema versions and validate migration paths. It prevents accidental schema changes from reaching production by creating immutable SQL snapshots during your test runs.
+FreezeRay is a **Swift macro package** that freezes SwiftData schema versions and validates migration paths. It prevents accidental schema changes from reaching production by creating immutable fixtures during your test runs.
 
 ## Features
 
-- ❄️ **Macro-based** - Tight integration with your codebase via Swift macros
-- 🧪 **Auto-generates tests** - Freeze tests and migration smoke tests from annotations
-- ✅ **Compile-time validation** - Errors if config missing or malformed
+- ❄️ **Macro-based** - Zero configuration, just add two annotations
+- 🧪 **Auto-generates tests** - Schema freezing and migration validation from macros
+- 🔒 **Drift detection** - Build fails if frozen schemas change
 - 🔄 **Zero orchestration** - Just run tests normally with `⌘U`
-- 📝 **Minimal config** - Single `.freezeray.yml` with just `fixture_dir`
+- 📦 **Multiple artifacts** - SQLite database, schema JSON, and SHA256 checksum
 - 🚀 **Type-safe** - Compiler validates everything
 
 ## Installation
 
 ### Swift Package Manager
 
-Add FreezeRay to your `Package.swift`:
+Add FreezeRay to your test target's dependencies in `Package.swift`:
 
 ```swift
 dependencies: [
     .package(url: "https://github.com/trinsic/FreezeRay.git", from: "1.0.0")
+],
+targets: [
+    .testTarget(
+        name: "MyAppTests",
+        dependencies: ["FreezeRay"]
+    )
 ]
-```
-
-### Homebrew (Coming Soon)
-
-```bash
-brew install trinsic/tap/freezeray
-```
-
-### Manual
-
-```bash
-git clone https://github.com/trinsic/FreezeRay.git
-cd FreezeRay
-swift build -c release
-cp .build/release/freezeray /usr/local/bin/
 ```
 
 ## Quick Start
 
-### 1. Add FreezeRay Package
+### 1. Annotate Shipped Schemas
 
-Add to your test target's dependencies:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/trinsic/FreezeRay.git", from: "1.0.0")
-]
-```
-
-### 2. Create Configuration
-
-Create `.freezeray.yml` in your project root:
-
-```yaml
-fixture_dir: app/MyAppTests/Fixtures/SwiftData
-```
-
-### 3. Annotate Schemas
-
-Add `@FreezeSchema` to your schema versions:
+Add `@FreezeRay.Freeze` to schema versions you've shipped to production:
 
 ```swift
+import SwiftData
 import FreezeRay
 
-@FreezeSchema(version: 1)
-enum SchemaV1: VersionedSchema {
+@FreezeRay.Freeze(version: "1.0.0")
+enum AppSchemaV1: VersionedSchema {
     static let versionIdentifier = Schema.Version(1, 0, 0)
     static var models: [any PersistentModel.Type] {
         [User.self]
     }
 }
 
-@FreezeSchema(version: 2)
-enum SchemaV2: VersionedSchema {
+@FreezeRay.Freeze(version: "2.0.0")
+enum AppSchemaV2: VersionedSchema {
     static let versionIdentifier = Schema.Version(2, 0, 0)
     static var models: [any PersistentModel.Type] {
         [User.self, Post.self]
     }
 }
-```
 
-### 4. Annotate Migration Plan
-
-Add `@GenerateMigrationTests` to your migration plan:
-
-```swift
-import FreezeRay
-
-@GenerateMigrationTests
-enum MigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self]
-    }
-    static var stages: [MigrationStage] {
-        [migrateV1toV2]
+// Current HEAD - not frozen yet
+enum AppSchemaV3: VersionedSchema {
+    static let versionIdentifier = Schema.Version(3, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        [User.self, Post.self, Comment.self]
     }
 }
 ```
 
-### 5. Run Tests
+### 2. Annotate Migration Plan
+
+Add `@FreezeRay.AutoTests` to your migration plan:
+
+```swift
+@FreezeRay.AutoTests
+struct AppMigrations: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [AppSchemaV1.self, AppSchemaV2.self, AppSchemaV3.self]
+    }
+
+    static var stages: [MigrationStage] {
+        [migrateV1toV2, migrateV2toV3]
+    }
+
+    static let migrateV1toV2 = MigrationStage.lightweight(
+        fromVersion: AppSchemaV1.self,
+        toVersion: AppSchemaV2.self
+    )
+
+    static let migrateV2toV3 = MigrationStage.lightweight(
+        fromVersion: AppSchemaV2.self,
+        toVersion: AppSchemaV3.self
+    )
+}
+```
+
+### 3. Call Generated Methods in Tests
+
+```swift
+import Testing
+import FreezeRay
+
+@Suite("Schema Tests")
+struct SchemaTests {
+    @Test("Freeze and validate schemas")
+    func testSchemas() throws {
+        // Freeze schemas (first run creates fixtures, subsequent runs verify)
+        try AppSchemaV1.__freezeray_freeze_1_0_0()
+        try AppSchemaV2.__freezeray_freeze_2_0_0()
+
+        // Check for drift (fails if frozen schemas changed)
+        try AppSchemaV1.__freezeray_check_1_0_0()
+        try AppSchemaV2.__freezeray_check_2_0_0()
+
+        // Test all migrations to HEAD
+        try AppMigrations.__freezeray_test_migrations()
+    }
+}
+```
+
+### 4. Run Tests
 
 Press `⌘U` or run tests from CLI:
 
 ```bash
+swift test
+# or
 xcodebuild test -scheme MyApp
 ```
 
-The macros generate:
-- `test_freezeV1()` - Exports v1-schema.sql
-- `test_freezeV2()` - Exports v2-schema.sql
-- `test_migrationV1toV2()` - Validates V1→V2 works
-- `test_migrationV1toV2()` - Validates full path works
+**First run** generates fixtures:
+```
+✅ Frozen schema 1.0.0 → FreezeRay/Fixtures/1.0.0/
+✅ Frozen schema 2.0.0 → FreezeRay/Fixtures/2.0.0/
+✅ Drift detection passed
+🧪 Testing migrations for 2 frozen fixture(s)...
+   Testing migration: 1.0.0 → HEAD
+      ✅ Migration succeeded
+   Testing migration: 2.0.0 → HEAD
+      ✅ Migration succeeded
+✅ All migrations passed
+```
+
+**Subsequent runs** validate against frozen fixtures:
+- If schema unchanged: ✅ Tests pass
+- If schema changed: ❌ Build fails with drift error
 
 ## How It Works
 
 ### Macro Expansion
 
-The `@FreezeSchema` macro expands to:
+The `@FreezeRay.Freeze` macro generates two methods:
 
 ```swift
-@FreezeSchema(version: 1)
-enum SchemaV1: VersionedSchema { ... }
+@FreezeRay.Freeze(version: "1.0.0")
+enum AppSchemaV1: VersionedSchema { ... }
 
 // Expands to:
-func test_freezeV1() throws {
-    try FreezeRayClient.freezeSchema(
-        version: 1,
-        schemaType: SchemaV1.self,
-        fixtureDir: "app/MyAppTests/Fixtures/SwiftData"
+#if DEBUG
+static func __freezeray_freeze_1_0_0() throws {
+    try FreezeRayRuntime.freeze(
+        schema: AppSchemaV1.self,
+        version: "1.0.0"
     )
 }
+
+static func __freezeray_check_1_0_0() throws {
+    try FreezeRayRuntime.checkDrift(
+        schema: AppSchemaV1.self,
+        version: "1.0.0"
+    )
+}
+#endif
 ```
 
-The `@GenerateMigrationTests` macro expands to:
+The `@FreezeRay.AutoTests` macro generates:
 
 ```swift
-@GenerateMigrationTests
-enum MigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self, SchemaV3.self]
-    }
-}
+@FreezeRay.AutoTests
+struct AppMigrations: SchemaMigrationPlan { ... }
 
 // Expands to:
-func test_migrationV1toV3() throws { ... }  // Full path
-func test_migrationV1toV2() throws { ... }  // Step 1
-func test_migrationV2toV3() throws { ... }  // Step 2
+#if DEBUG
+static func __freezeray_test_migrations() throws {
+    try FreezeRayRuntime.testAllMigrations(
+        migrationPlan: AppMigrations.self
+    )
+}
+#endif
 ```
 
-### Freezing Process
+### Generated Artifacts
 
-When you run the generated tests:
+Each frozen schema version generates four artifacts in `FreezeRay/Fixtures/{version}/`:
 
-1. Creates temporary SwiftData container with the schema
-2. Exports SQLite schema using `sqlite3 .schema`
-3. Saves to `{fixture_dir}/v{N}-schema.sql`
-4. Future runs can compare against this frozen snapshot
+1. **App.sqlite** - Canonical SQLite database with the schema
+2. **schema.json** - Structured metadata (entity count, timestamp)
+3. **schema.sql** - SQL DDL exported via `sqlite3 .schema`
+4. **schema.sha256** - SHA256 checksum of `schema.sql` for drift detection
 
-### Example Frozen Schema
+**Commit these to source control!** They represent your production schema contract.
 
-```sql
--- v2-schema.sql
-CREATE TABLE ZEntry (
-    Z_PK INTEGER PRIMARY KEY,
-    ZDATECODEID VARCHAR,
-    ZCREATEDAT TIMESTAMP
-);
+### Example Artifacts
+
 ```
+FreezeRay/Fixtures/1.0.0/
+  ├── App.sqlite          # Empty database with V1 schema
+  ├── schema.json         # {"entities": 1, "timestamp": "2025-10-09T17:10:24Z"}
+  ├── schema.sql          # CREATE TABLE ZUSER (Z_PK INTEGER PRIMARY KEY, ...)
+  └── schema.sha256       # 0cc298858e409d8beaac66dbea3154d51271bad7...
+```
+
+### Drift Detection
+
+When you run `__freezeray_check_X_X_X()`:
+
+1. Creates temporary SQLite database with current schema definition
+2. Exports SQL schema and calculates SHA256 checksum
+3. Compares with stored `schema.sha256`
+4. **Fails test if checksums don't match** (schema drift detected)
+
+This catches accidental changes like:
+- Adding/removing fields
+- Changing field types
+- Adding/removing relationships
+- Changing indexes
+
+### Migration Testing
+
+When you run `__freezeray_test_migrations()`:
+
+1. Scans `FreezeRay/Fixtures/` for all frozen versions
+2. For each version:
+   - Copies `App.sqlite` to temp directory
+   - Creates `ModelContainer` with HEAD schema + migration plan
+   - SwiftData automatically runs migrations
+   - Performs basic integrity checks
+3. **Fails test if any migration crashes or errors**
+
+This validates your migration plan works from all historical versions to HEAD.
+
+## Workflow
+
+### When Shipping a New Schema
+
+**Before shipping version 2.0.0:**
+
+```swift
+// 1. Add @Freeze to the schema you're shipping
+@FreezeRay.Freeze(version: "2.0.0")
+enum AppSchemaV2: VersionedSchema { ... }
+
+// 2. Run tests to generate fixtures
+swift test  // Creates FreezeRay/Fixtures/2.0.0/
+
+// 3. Commit fixtures to git
+git add FreezeRay/Fixtures/2.0.0/
+git commit -m "Freeze schema v2.0.0"
+
+// 4. Ship to production
+```
+
+**After shipping**, the frozen schema is **immutable**:
+- Future test runs verify the schema hasn't changed
+- Any accidental changes fail the build
+- Forces you to create V3 instead of modifying V2
+
+### When Developing Next Schema
+
+```swift
+// HEAD schema - NOT frozen yet
+enum AppSchemaV3: VersionedSchema {
+    static let versionIdentifier = Schema.Version(3, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        [User.self, Post.self, Comment.self]  // Keep iterating!
+    }
+}
+```
+
+- Don't add `@Seal` until you ship it
+- Migration tests validate V1→V3 and V2→V3 paths automatically
+- Schema can change freely during development
 
 ## Project Structure
 
-FreezeRay works with any project structure - just configure paths in `.freezeray.yml`:
-
 ```
 YourProject/
-  .freezeray.yml                    ← Configuration file
-  app/
+  Package.swift
+  Sources/
     YourApp/
-      Data/SwiftData/Schemas/       ← Schema version files
-        SchemaV1.swift
-        SchemaV2.swift
+      Data/
+        SchemaV1.swift         ← @FreezeRay.Freeze(version: "1.0.0")
+        SchemaV2.swift         ← @FreezeRay.Freeze(version: "2.0.0")
+        SchemaV3.swift         ← Current HEAD (not frozen)
+        Migrations.swift       ← @FreezeRay.AutoTests
+  Tests/
     YourAppTests/
-      Fixtures/SwiftData/           ← Generated frozen schemas
-        v1-schema.sql
-        v2-schema.sql
-      Generated/                    ← Generated smoke tests
-        MigrationSmokeTests.swift
+      SchemaTests.swift        ← Calls __freezeray_freeze/check/test methods
+  FreezeRay/                   ← ⚠️ COMMIT THIS!
+    Fixtures/
+      1.0.0/
+        App.sqlite
+        schema.json
+        schema.sql
+        schema.sha256
+      2.0.0/
+        App.sqlite
+        schema.json
+        schema.sql
+        schema.sha256
 ```
 
 ## Integration
 
-### Xcode Build Phase
+### Pre-commit Hook
 
-Add a "Freeze Schemas" build phase:
+Ensure schemas are sealed before commits:
 
 ```bash
-if [ "${CONFIGURATION}" = "Release" ]; then
-    freezeray || (echo "⚠️ Unfrozen schemas detected"; exit 1)
-fi
+#!/bin/bash
+# .git/hooks/pre-commit
+
+swift test --filter SchemaTests || {
+    echo "❌ Schema drift detected - create a new schema version"
+    exit 1
+}
 ```
 
 ### GitHub Actions
 
 ```yaml
-- name: Validate Schemas
-  run: freezeray
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Validate schemas
+        run: swift test --filter SchemaTests
 ```
 
-### Fastlane
+### Xcode Build Phase
 
-```ruby
-before_all do
-  sh("freezeray")
-end
-```
-
-## Configuration
-
-FreezeRay requires explicit configuration via `.freezeray.yml`:
-
-```yaml
-# Schema versions in migration order
-schemas:
-  - version: 1
-    identifier: SchemaV1
-    path: app/MyApp/Data/SwiftData/Schemas/SchemaV1.swift
-  - version: 2
-    identifier: SchemaV2
-    path: app/MyApp/Data/SwiftData/Schemas/SchemaV2.swift
-
-# Output paths
-fixture_dir: app/MyAppTests/Fixtures/SwiftData
-test_output: app/MyAppTests/Generated/MigrationSmokeTests.swift
-
-# Xcode configuration
-project: app/MyApp.xcodeproj
-scheme: MyApp
-test_target: MyAppTests
-migration_plan: MigrationPlan
-
-# Optional: Data namespace prefix (e.g., DataV1, DataV2)
-data_namespace_prefix: Data
-```
-
-See `.freezeray.yml.example` for a complete template.
-
-## Commands
+Add a "Validate Schemas" build phase that runs before compilation:
 
 ```bash
-freezeray                    # Check status (exit 0 if all frozen, 1 if unfrozen)
-freezeray --freeze           # Freeze unfrozen schemas
-freezeray --generate-tests   # Generate migration smoke tests
-freezeray --config PATH      # Use custom config file path
-freezeray --help             # Show all options
+if [ "${CONFIGURATION}" = "Release" ]; then
+    swift test --filter SchemaTests || {
+        echo "⚠️ Schema drift detected"
+        exit 1
+    }
+fi
 ```
 
-## Use Cases
+## Advanced Usage
 
-### Before Release
+### Custom Test Organization
 
-```bash
-# In your release script
-freezeray --freeze
-git add app/MyAppTests/Fixtures/SwiftData/*.sql
-git commit -m "Freeze schema v3"
-git push
-```
-
-### CI/CD Gate
-
-```bash
-# Fail build if schemas aren't frozen
-freezeray || exit 1
-```
-
-### Generate Tests
-
-```bash
-# Generate migration smoke tests
-freezeray --generate-tests
-
-# Run tests to validate migration path
-xcodebuild test -scheme MyApp -only-testing:MigrationSmokeTests
-```
-
-### Writing Custom Migration Tests
-
-The generated smoke tests only validate that migrations run without crashing. For correctness testing:
+You can organize the generated calls however you want:
 
 ```swift
-// app/MyAppTests/CustomMigrationTests.swift
-func testV1toV2_PreservesUserData() throws {
-    // Create V1 container with test data
-    let v1Container = try createV1Container(with: testData)
+@Suite("Schema Integrity")
+struct SchemaIntegrityTests {
+    @Test("V1 schema is frozen")
+    func v1Frozen() throws {
+        try AppSchemaV1.__freezeray_freeze_1_0_0()
+        try AppSchemaV1.__freezeray_check_1_0_0()
+    }
 
-    // Migrate to V2
-    let v2Container = try migrateToV2(from: v1Container)
+    @Test("V2 schema is frozen")
+    func v2Frozen() throws {
+        try AppSchemaV2.__freezeray_freeze_2_0_0()
+        try AppSchemaV2.__freezeray_check_2_0_0()
+    }
 
-    // Assert data was preserved correctly
-    let users = try v2Context.fetch(FetchDescriptor<User>())
-    XCTAssertEqual(users.count, 5)
-    XCTAssertEqual(users.first?.name, "Alice")
+    @Test("All migrations work")
+    func migrations() throws {
+        try AppMigrations.__freezeray_test_migrations()
+    }
 }
+```
+
+### CI-Only Freezing
+
+You can make freezing a no-op locally and only run in CI:
+
+```swift
+@Test func freezeSchemas() throws {
+    #if CI
+    try AppSchemaV1.__freezeray_freeze_1_0_0()
+    try AppSchemaV2.__freezeray_freeze_2_0_0()
+    #endif
+}
+
+@Test func checkDrift() throws {
+    // Always check drift (fails if fixtures missing)
+    try AppSchemaV1.__freezeray_check_1_0_0()
+    try AppSchemaV2.__freezeray_check_2_0_0()
+}
+```
+
+Then in GitHub Actions:
+
+```yaml
+- name: Run tests
+  run: swift test
+  env:
+    CI: 1
 ```
 
 ## Why Freeze Schemas?
@@ -317,25 +417,100 @@ SwiftData migrations are fragile. A tiny schema change can:
 - Delete user data silently
 - Break CloudKit sync
 - Cause migration deadlocks
+- Corrupt existing databases
+
+**You won't know until users complain.**
 
 ### The Solution
 
-Freeze schemas before release:
-1. ✅ Know exactly what schema ships
-2. ✅ Catch accidental changes in code review
-3. ✅ Force explicit migration planning
-4. ✅ Test migrations with production data
+FreezeRay makes schemas immutable once shipped:
+
+1. ✅ **Catch drift early** - Build fails if frozen schema changes
+2. ✅ **Explicit versioning** - Forces you to create new schema versions
+3. ✅ **Migration validation** - Tests prove migrations work from all historical versions
+4. ✅ **Code review safety** - Reviewers can see fixture diffs
+5. ✅ **Production confidence** - Ship knowing exactly what schema users will get
+
+### Real-World Example
+
+**Without FreezeRay:**
+```swift
+// Shipped v1.0.0 with this schema
+enum AppSchemaV1: VersionedSchema {
+    static var models: [any PersistentModel.Type] {
+        [User.self]
+    }
+}
+
+// Later, during v1.1.0 development...
+enum AppSchemaV1: VersionedSchema {  // ⚠️ Accidentally modified V1!
+    static var models: [any PersistentModel.Type] {
+        [User.self, Post.self]  // Added Post - BREAKING CHANGE!
+    }
+}
+```
+
+**Result:** v1.1.0 ships, existing users' databases fail to migrate, app crashes on launch.
+
+**With FreezeRay:**
+```swift
+@FreezeRay.Freeze(version: "1.0.0")
+enum AppSchemaV1: VersionedSchema {
+    static var models: [any PersistentModel.Type] {
+        [User.self, Post.self]  // Modified
+    }
+}
+```
+
+**Result:**
+```
+❌ Schema drift detected in frozen version 1.0.0
+
+The frozen schema has changed since it was frozen.
+Frozen schemas are immutable - create a new schema version instead.
+
+Expected checksum: 0cc298858e409d8beaac66dbea3154d51271bad7...
+Actual checksum:   26d70c10e9febf7f2da4657816cb936b5d0b4460...
+```
+
+Build fails before you even commit. Crisis averted.
 
 ## Requirements
 
-- macOS 13.0+
+- macOS 14.0+ / iOS 17.0+
 - Xcode 16.0+
 - Swift 6.0+
-- SwiftData project structure
+- SwiftData
+
+## FAQ
+
+**Q: When should I freeze a schema?**
+A: When you ship it to production. Don't freeze during development.
+
+**Q: Can I change a frozen schema?**
+A: No. That's the point. Create a new schema version instead.
+
+**Q: What if I need to fix a frozen schema?**
+A: You can't. Ship a new version with the fix and a migration.
+
+**Q: Do I commit the fixtures?**
+A: Yes! They're part of your schema contract.
+
+**Q: Can I change the fixture directory?**
+A: Not currently. It's always `FreezeRay/Fixtures/{version}/`. This ensures consistency.
+
+**Q: What if I delete a frozen schema version?**
+A: The fixtures remain. You can delete old schema code but keep fixtures for migration testing.
+
+**Q: How do I test custom migration logic?**
+A: The generated tests only validate migrations don't crash. Write separate tests for data correctness.
+
+**Q: Can I use this with CloudKit?**
+A: Yes. The fixtures are local-only (CloudKit disabled). Your app's CloudKit sync is unaffected.
 
 ## Contributing
 
-See [PLAN.md](PLAN.md) for the public release roadmap.
+See [PLAN.md](PLAN.md) for the development roadmap.
 
 ## License
 
@@ -343,6 +518,6 @@ MIT License - see [LICENSE](LICENSE)
 
 ## Credits
 
-Built by [Trinsic Ventures](https://trinsic.ventures) for the [Clearly](https://github.com/trinsic/clearly) journaling app.
+Built by [Trinsic Ventures](https://trinsic.ventures) for the [Clearly](https://github.com/trinsic/clearly-app) journaling app.
 
-Powered by [SwiftSyntax](https://github.com/apple/swift-syntax) for robust Swift parsing.
+Powered by [SwiftSyntax](https://github.com/apple/swift-syntax) and [CryptoKit](https://developer.apple.com/documentation/cryptokit).

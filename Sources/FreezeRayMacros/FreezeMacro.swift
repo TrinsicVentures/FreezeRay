@@ -2,11 +2,12 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-/// Macro that seals a schema version and generates fixture artifacts.
-public struct SealMacro: PeerMacro {
+/// Macro that freezes a schema version and generates fixture artifacts.
+public struct FreezeMacro: MemberMacro {
     public static func expansion(
         of node: AttributeSyntax,
-        providingPeersOf declaration: some DeclSyntaxProtocol,
+        providingMembersOf declaration: some DeclGroupSyntax,
+        conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         // Extract version from @Seal(version: "1.4.0")
@@ -28,13 +29,13 @@ public struct SealMacro: PeerMacro {
 
         let schemaName = enumDecl.name.text
 
-        // Generate fixture sealing function
+        // Generate fixture freezing function
         // This will be called at build time to generate fixtures
-        let sealFunction: DeclSyntax = """
+        let freezeFunction: DeclSyntax = """
             #if DEBUG
             @available(macOS 14, iOS 17, *)
-            static func __freezeray_seal_\(raw: version.replacingOccurrences(of: ".", with: "_"))() throws {
-                try FreezeRayRuntime.seal(
+            static func __freezeray_freeze_\(raw: version.replacingOccurrences(of: ".", with: "_"))() throws {
+                try FreezeRayRuntime.freeze(
                     schema: \(raw: schemaName).self,
                     version: "\(raw: version)"
                 )
@@ -43,7 +44,7 @@ public struct SealMacro: PeerMacro {
             """
 
         // Generate drift check
-        // This validates the sealed schema hasn't changed
+        // This validates the frozen schema hasn't changed
         let driftCheck: DeclSyntax = """
             #if DEBUG
             @available(macOS 14, iOS 17, *)
@@ -56,7 +57,7 @@ public struct SealMacro: PeerMacro {
             #endif
             """
 
-        return [sealFunction, driftCheck]
+        return [freezeFunction, driftCheck]
     }
 }
 
@@ -70,9 +71,9 @@ enum MacroError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidVersionArgument:
-            return "@Seal requires version argument: @Seal(version: \"1.4.0\")"
+            return "@Freeze requires version argument: @Freeze(version: \"1.4.0\")"
         case .notAnEnum:
-            return "@Seal can only be applied to enum declarations"
+            return "@Freeze can only be applied to enum declarations"
         case .custom(let message):
             return message
         }

@@ -3,10 +3,11 @@ import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
 /// Macro that generates migration smoke tests.
-public struct AutoTestsMacro: PeerMacro {
+public struct AutoTestsMacro: MemberMacro {
     public static func expansion(
         of node: AttributeSyntax,
-        providingPeersOf declaration: some DeclSyntaxProtocol,
+        providingMembersOf declaration: some DeclGroupSyntax,
+        conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         // Get migration plan name
@@ -16,25 +17,19 @@ public struct AutoTestsMacro: PeerMacro {
 
         let planName = structDecl.name.text
 
-        // Generate test class
-        let testClass: DeclSyntax = """
+        // Generate test method inside the struct
+        let testMethod: DeclSyntax = """
             #if DEBUG
-            import Testing
-
             @available(macOS 14, iOS 17, *)
-            @Suite("FreezeRay Migration Tests")
-            struct __FreezeRay_\(raw: planName)_Tests {
-                @Test("Migrate all sealed fixtures to HEAD")
-                func testAllMigrations() throws {
-                    try FreezeRayRuntime.testAllMigrations(
-                        migrationPlan: \(raw: planName).self
-                    )
-                }
+            static func __freezeray_test_migrations() throws {
+                try FreezeRayRuntime.testAllMigrations(
+                    migrationPlan: \(raw: planName).self
+                )
             }
             #endif
             """
 
-        return [testClass]
+        return [testMethod]
     }
 }
 

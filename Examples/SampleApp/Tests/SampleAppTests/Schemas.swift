@@ -4,8 +4,8 @@ import FreezeRay
 
 // MARK: - Schema Versions
 
-@FreezeSchema(version: 1)
-enum SchemaV1: VersionedSchema {
+@FreezeRay.Freeze(version: "1.0.0")
+enum AppSchemaV1: VersionedSchema {
     static let versionIdentifier = Schema.Version(1, 0, 0)
 
     static var models: [any PersistentModel.Type] {
@@ -13,8 +13,8 @@ enum SchemaV1: VersionedSchema {
     }
 }
 
-@FreezeSchema(version: 2)
-enum SchemaV2: VersionedSchema {
+@FreezeRay.Freeze(version: "2.0.0")
+enum AppSchemaV2: VersionedSchema {
     static let versionIdentifier = Schema.Version(2, 0, 0)
 
     static var models: [any PersistentModel.Type] {
@@ -22,8 +22,8 @@ enum SchemaV2: VersionedSchema {
     }
 }
 
-@FreezeSchema(version: 3)
-enum SchemaV3: VersionedSchema {
+// Current HEAD - not frozen yet
+enum AppSchemaV3: VersionedSchema {
     static let versionIdentifier = Schema.Version(3, 0, 0)
 
     static var models: [any PersistentModel.Type] {
@@ -33,27 +33,23 @@ enum SchemaV3: VersionedSchema {
 
 // MARK: - Migration Plan
 
-@GenerateMigrationTests
-enum MigrationPlan: SchemaMigrationPlan {
+@FreezeRay.AutoTests
+struct AppMigrations: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [SchemaV1.self, SchemaV2.self, SchemaV3.self]
+        [AppSchemaV1.self, AppSchemaV2.self, AppSchemaV3.self]
     }
 
     static var stages: [MigrationStage] {
         [migrateV1toV2, migrateV2toV3]
     }
 
-    static let migrateV1toV2 = MigrationStage.custom(
-        fromVersion: SchemaV1.self,
-        toVersion: SchemaV2.self,
-        willMigrate: nil,
-        didMigrate: nil
+    static let migrateV1toV2 = MigrationStage.lightweight(
+        fromVersion: AppSchemaV1.self,
+        toVersion: AppSchemaV2.self
     )
 
-    static let migrateV2toV3 = MigrationStage.custom(
-        fromVersion: SchemaV2.self,
-        toVersion: SchemaV3.self,
-        willMigrate: nil,
-        didMigrate: nil
+    static let migrateV2toV3 = MigrationStage.lightweight(
+        fromVersion: AppSchemaV2.self,
+        toVersion: AppSchemaV3.self
     )
 }

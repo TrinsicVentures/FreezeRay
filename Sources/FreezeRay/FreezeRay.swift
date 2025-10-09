@@ -1,74 +1,62 @@
-// FreezeRay - Freeze SwiftData schemas for safe production releases
+// FreezeRay - Seal SwiftData schemas for safe production releases
 //
 // Usage:
 //
-//   @FreezeSchema(version: 1)
-//   enum SchemaV1: VersionedSchema { ... }
+//   @FreezeRay.Seal(version: "1.4.0")
+//   enum AppSchemaV1: VersionedSchema { ... }
 //
-//   @GenerateMigrationTests
-//   enum MigrationPlan: SchemaMigrationPlan { ... }
+//   @FreezeRay.AutoTests
+//   struct AppMigrations: SchemaMigrationPlan { ... }
 
-/// Freezes a SwiftData schema version by generating a test method that exports SQL.
+/// Seal a shipped schema version by generating an immutable fixture.
+///
+/// Generates:
+/// - `FreezeRay/Fixtures/{version}/App.sqlite` - Canonical SQLite database
+/// - `FreezeRay/Fixtures/{version}/schema.json` - Structured schema metadata
+/// - `FreezeRay/Fixtures/{version}/schema.sha256` - Checksum for drift detection
+///
+/// **The sealed schema becomes immutable.** Future changes to the schema will fail the build.
 ///
 /// Example:
 /// ```swift
-/// @FreezeSchema(version: 1)
-/// enum SchemaV1: VersionedSchema {
-///     static let versionIdentifier = Schema.Version(1, 0, 0)
+/// @FreezeRay.Seal(version: "1.4.0")
+/// enum AppSchemaV1: VersionedSchema {
+///     static var versionIdentifier = Schema.Version(1, 4, 0)
 ///     static var models: [any PersistentModel.Type] { [User.self] }
 /// }
 /// ```
 ///
-/// Generates:
-/// ```swift
-/// func test_freezeV1() throws {
-///     try FreezeRayClient.freezeSchema(
-///         version: 1,
-///         schemaType: SchemaV1.self,
-///         fixtureDir: "Tests/Fixtures/SwiftData"
-///     )
-/// }
-/// ```
-///
-/// - Parameters:
-///   - version: Schema version number
-///   - fixtureDir: Directory to save frozen SQL (default: "Tests/Fixtures/SwiftData")
-@attached(member, names: arbitrary)
-public macro FreezeSchema(version: Int, fixtureDir: String = "Tests/Fixtures/SwiftData") = #externalMacro(
+/// - Parameter version: Version identifier (e.g., "1.4.0")
+@attached(peer, names: arbitrary)
+public macro Seal(version: String) = #externalMacro(
     module: "FreezeRayMacros",
-    type: "FreezeSchemasMacro"
+    type: "SealMacro"
 )
 
-/// Generates migration smoke tests for all schema versions.
+/// Automatically generate migration smoke tests for all sealed fixtures.
 ///
-/// Scans for all `@FreezeSchema` annotations and generates tests validating
-/// the migration path works without crashing.
+/// Generates test methods that:
+/// 1. Copy each sealed fixture to a temp directory
+/// 2. Boot current code (with latest schema)
+/// 3. Run SwiftData migration using the SchemaMigrationPlan
+/// 4. Perform integrity checks (open, fetch, basic queries)
+///
+/// Any crash or error → test fails (you catch it before customers do).
 ///
 /// Example:
 /// ```swift
-/// @GenerateMigrationTests
-/// enum MigrationPlan: SchemaMigrationPlan {
+/// @FreezeRay.AutoTests
+/// struct AppMigrations: SchemaMigrationPlan {
 ///     static var schemas: [any VersionedSchema.Type] {
-///         [SchemaV1.self, SchemaV2.self, SchemaV3.self]
+///         [AppSchemaV1.self, AppSchemaV2.self]
 ///     }
 ///     static var stages: [MigrationStage] {
-///         [migrateV1toV2, migrateV2toV3]
+///         [.lightweight(from: AppSchemaV1.self, to: AppSchemaV2.self)]
 ///     }
 /// }
 /// ```
-///
-/// Generates:
-/// ```swift
-/// func test_migrationV1toV3() throws {
-///     try FreezeRayClient.testMigrationPath(
-///         from: SchemaV1.self,
-///         to: SchemaV3.self,
-///         migrationPlan: MigrationPlan.self
-///     )
-/// }
-/// ```
-@attached(member, names: arbitrary)
-public macro GenerateMigrationTests() = #externalMacro(
+@attached(peer, names: arbitrary)
+public macro AutoTests() = #externalMacro(
     module: "FreezeRayMacros",
-    type: "GenerateMigrationTestsMacro"
+    type: "AutoTestsMacro"
 )

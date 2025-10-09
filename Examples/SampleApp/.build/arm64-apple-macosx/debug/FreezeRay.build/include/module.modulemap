@@ -1,0 +1,3 @@
+module FreezeRay {
+    header "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/include/FreezeRay-Swift.h"
+}

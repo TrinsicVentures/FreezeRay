@@ -68,23 +68,60 @@ public struct GenerateMigrationTestsMacro: MemberMacro {
     private static func extractSchemas(from decl: EnumDeclSyntax) throws -> [SchemaInfo] {
         // Look for: static var schemas: [any VersionedSchema.Type] { [...] }
         for member in decl.memberBlock.members {
-            guard let varDecl = member.decl.as(VariableDeclSyntax.self),
-                  let binding = varDecl.bindings.first,
-                  let pattern = binding.pattern.as(IdentifierPatternSyntax.self),
-                  pattern.identifier.text == "schemas" else {
+            guard let varDecl = member.decl.as(VariableDeclSyntax.self) else {
+                continue
+            }
+
+            // Check if this is the "schemas" variable
+            let isSchemas = varDecl.bindings.contains { binding in
+                if let pattern = binding.pattern.as(IdentifierPatternSyntax.self) {
+                    return pattern.identifier.text == "schemas"
+                }
+                return false
+            }
+
+            guard isSchemas, let binding = varDecl.bindings.first else {
                 continue
             }
 
             // Extract array literal from initializer or accessor
             if let initializer = binding.initializer?.value.as(ArrayExprSyntax.self) {
                 return try parseSchemaArray(initializer)
-            } else if let accessor = binding.accessorBlock,
-                      case .getter(let codeBlock) = accessor.accessors {
-                // Look for return statement with array
-                for statement in codeBlock {
-                    if let returnStmt = statement.item.as(ReturnStmtSyntax.self),
-                       let arrayExpr = returnStmt.expression?.as(ArrayExprSyntax.self) {
+            } else if let accessor = binding.accessorBlock {
+                // Handle both explicit getter and implicit computed property
+                switch accessor.accessors {
+                case .getter(let codeBlock):
+                    // Implicit computed property: var schemas { [...] }
+                    // Check for direct array expression (no return keyword)
+                    if let arrayExpr = codeBlock.first?.item.as(ArrayExprSyntax.self) {
                         return try parseSchemaArray(arrayExpr)
+                    }
+
+                    // Explicit return: { return [...] }
+                    for statement in codeBlock {
+                        if let returnStmt = statement.item.as(ReturnStmtSyntax.self),
+                           let arrayExpr = returnStmt.expression?.as(ArrayExprSyntax.self) {
+                            return try parseSchemaArray(arrayExpr)
+                        }
+                    }
+                case .accessors(let accessorList):
+                    // Check for getter accessor in list
+                    for accessor in accessorList {
+                        if accessor.accessorSpecifier.text == "get",
+                           let body = accessor.body {
+                            // Check for direct array expression (no return keyword)
+                            if let arrayExpr = body.statements.first?.item.as(ArrayExprSyntax.self) {
+                                return try parseSchemaArray(arrayExpr)
+                            }
+
+                            // Explicit return
+                            for statement in body.statements {
+                                if let returnStmt = statement.item.as(ReturnStmtSyntax.self),
+                                   let arrayExpr = returnStmt.expression?.as(ArrayExprSyntax.self) {
+                                    return try parseSchemaArray(arrayExpr)
+                                }
+                            }
+                        }
                     }
                 }
             }

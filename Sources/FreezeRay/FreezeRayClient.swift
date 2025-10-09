@@ -139,70 +139,15 @@ public enum FreezeRayClient {
         print("✅ Migration succeeded: \(fromSchema) → \(toSchema)")
     }
 
-    /// Load FreezeRay configuration from `.freezeray.yml`
-    ///
-    /// - Parameter projectRoot: Project root directory (defaults to current directory)
-    /// - Returns: Configuration dictionary
-    public static func loadConfig(projectRoot: String = FileManager.default.currentDirectoryPath) throws -> [String: String] {
-        let configURL = URL(fileURLWithPath: projectRoot)
-            .appendingPathComponent(".freezeray.yml")
-
-        guard FileManager.default.fileExists(atPath: configURL.path) else {
-            throw FreezeError.configNotFound(path: configURL.path)
-        }
-
-        let content = try String(contentsOf: configURL)
-        return try parseYAML(content)
-    }
-
-    /// Simple YAML parser for basic key-value pairs
-    private static func parseYAML(_ content: String) throws -> [String: String] {
-        var result: [String: String] = [:]
-
-        for line in content.split(separator: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-
-            // Skip comments and empty lines
-            guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
-
-            // Parse "key: value" format
-            let parts = trimmed.split(separator: ":", maxSplits: 1)
-            guard parts.count == 2 else { continue }
-
-            let key = parts[0].trimmingCharacters(in: .whitespaces)
-            let value = parts[1].trimmingCharacters(in: .whitespaces)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-
-            result[key] = value
-        }
-
-        return result
-    }
 }
 
 // MARK: - Errors
 
 public enum FreezeError: Error, CustomStringConvertible {
-    case configNotFound(path: String)
-    case fixtureDirectoryNotConfigured
     case sqliteExportFailed(version: Int)
 
     public var description: String {
         switch self {
-        case .configNotFound(let path):
-            return """
-                ❌ .freezeray.yml not found at \(path)
-
-                Create .freezeray.yml with:
-                    fixture_dir: app/MyAppTests/Fixtures/SwiftData
-                """
-        case .fixtureDirectoryNotConfigured:
-            return """
-                ❌ fixture_dir not defined in .freezeray.yml
-
-                Add to .freezeray.yml:
-                    fixture_dir: app/MyAppTests/Fixtures/SwiftData
-                """
         case .sqliteExportFailed(let version):
             return "❌ Failed to export SQL schema for v\(version)"
         }

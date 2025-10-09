@@ -10,8 +10,6 @@
 
 /// Freezes a SwiftData schema version by generating a test method that exports SQL.
 ///
-/// The macro reads `.freezeray.yml` to determine where to save the frozen schema SQL file.
-///
 /// Example:
 /// ```swift
 /// @FreezeSchema(version: 1)
@@ -27,12 +25,16 @@
 ///     try FreezeRayClient.freezeSchema(
 ///         version: 1,
 ///         schemaType: SchemaV1.self,
-///         fixtureDir: "app/MyAppTests/Fixtures/SwiftData"
+///         fixtureDir: "Tests/Fixtures/SwiftData"
 ///     )
 /// }
 /// ```
+///
+/// - Parameters:
+///   - version: Schema version number
+///   - fixtureDir: Directory to save frozen SQL (default: "Tests/Fixtures/SwiftData")
 @attached(member, names: arbitrary)
-public macro FreezeSchema(version: Int) = #externalMacro(
+public macro FreezeSchema(version: Int, fixtureDir: String = "Tests/Fixtures/SwiftData") = #externalMacro(
     module: "FreezeRayMacros",
     type: "FreezeSchemasMacro"
 )

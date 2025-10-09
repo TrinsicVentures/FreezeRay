@@ -1,0 +1,26 @@
+{
+  "": {
+    "swift-dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/master.swiftdeps"
+  },
+  "/Users/gk/Projects/Trinsic/FreezeRay/Sources/FreezeRayMacros/FreezeSchemasMacro.swift": {
+    "dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/FreezeSchemasMacro.d",
+    "object": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/FreezeSchemasMacro.swift.o",
+    "swiftmodule": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/FreezeSchemasMacro~partial.swiftmodule",
+    "swift-dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/FreezeSchemasMacro.swiftdeps",
+    "diagnostics": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/FreezeSchemasMacro.dia"
+  },
+  "/Users/gk/Projects/Trinsic/FreezeRay/Sources/FreezeRayMacros/GenerateMigrationTestsMacro.swift": {
+    "dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/GenerateMigrationTestsMacro.d",
+    "object": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/GenerateMigrationTestsMacro.swift.o",
+    "swiftmodule": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/GenerateMigrationTestsMacro~partial.swiftmodule",
+    "swift-dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/GenerateMigrationTestsMacro.swiftdeps",
+    "diagnostics": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/GenerateMigrationTestsMacro.dia"
+  },
+  "/Users/gk/Projects/Trinsic/FreezeRay/Sources/FreezeRayMacros/Plugin.swift": {
+    "dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/Plugin.d",
+    "object": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/Plugin.swift.o",
+    "swiftmodule": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/Plugin~partial.swiftmodule",
+    "swift-dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/Plugin.swiftdeps",
+    "diagnostics": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRayMacros-tool.build/Plugin.dia"
+  }
+}

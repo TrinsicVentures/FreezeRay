@@ -1,0 +1,19 @@
+{
+  "": {
+    "swift-dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/master.swiftdeps"
+  },
+  "/Users/gk/Projects/Trinsic/FreezeRay/Sources/FreezeRay/FreezeRay.swift": {
+    "dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRay.d",
+    "object": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRay.swift.o",
+    "swiftmodule": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRay~partial.swiftmodule",
+    "swift-dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRay.swiftdeps",
+    "diagnostics": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRay.dia"
+  },
+  "/Users/gk/Projects/Trinsic/FreezeRay/Sources/FreezeRay/FreezeRayClient.swift": {
+    "dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRayClient.d",
+    "object": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRayClient.swift.o",
+    "swiftmodule": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRayClient~partial.swiftmodule",
+    "swift-dependencies": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRayClient.swiftdeps",
+    "diagnostics": "/Users/gk/Projects/Trinsic/FreezeRay/Examples/SampleApp/.build/arm64-apple-macosx/debug/FreezeRay.build/FreezeRayClient.dia"
+  }
+}

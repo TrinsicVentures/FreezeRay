@@ -9,22 +9,70 @@
 
 ## Mission
 
-Make SwiftData schema management safe and predictable for production iOS/macOS apps by providing a zero-config tool that freezes schemas during release cycles.
+Make SwiftData schema management safe and predictable for production iOS/macOS apps by providing Swift macros that freeze schemas and generate migration tests.
 
 **Core Value Prop:** "Freeze your schemas like you freeze your dependencies - know exactly what ships."
+
+## Architecture: Swift Macros
+
+FreezeRay uses **Swift macros** instead of external scripts for tight integration with your codebase:
+
+**Benefits:**
+- ✅ **Compile-time generation** - Test methods generated during build
+- ✅ **Type-safe** - Compiler validates everything
+- ✅ **IDE integration** - Xcode understands it natively
+- ✅ **Zero orchestration** - Just run tests normally
+- ✅ **No external config** - Minimal `.freezeray.yml` for shared paths
+
+**Usage:**
+```swift
+// Minimal config file
+// .freezeray.yml
+fixture_dir: app/ClearlyTests/Fixtures/SwiftData
+
+// In your schema files
+@FreezeSchema(version: 1)
+enum SchemaV1: VersionedSchema { ... }
+
+@FreezeSchema(version: 2)
+enum SchemaV2: VersionedSchema { ... }
+
+// In your migration plan
+@GenerateMigrationTests
+enum MigrationPlan: SchemaMigrationPlan {
+    static var stages: [MigrationStage] { ... }
+}
+```
+
+**What the macros generate:**
+- `@FreezeSchema` → Test method that exports SQL to `{fixture_dir}/v{N}-schema.sql`
+- `@GenerateMigrationTests` → Smoke tests validating full migration path works
+
+**Package Structure:**
+```
+FreezeRay/
+  Sources/
+    FreezeRay/           # Public API (macro declarations)
+    FreezeRayMacros/     # Macro implementation (SwiftSyntax)
+    FreezeRayClient/     # Runtime helpers (SQL export, etc.)
+  Tests/
+    FreezeRayTests/      # Macro expansion tests
+  Examples/
+    SampleApp/           # Demo SwiftData app
+```
 
 ---
 
 ## Pre-Release Checklist (v0.1.0 → v1.0.0)
 
-### Phase 1: Core Functionality ✅
+### Phase 1: Core Functionality
 
-- [x] Schema detection via file system scanning
-- [x] SQL generation via xcodebuild test harness
-- [x] Git integration (auto-commit)
-- [x] Argument parser (status/freeze/commit modes)
-- [ ] Project structure auto-detection
-- [ ] Error handling and user-friendly messages
+- [ ] Macro package structure (FreezeRay, FreezeRayMacros, FreezeRayClient)
+- [ ] `@FreezeSchema` macro declaration and implementation
+- [ ] `@GenerateMigrationTests` macro declaration and implementation
+- [ ] `.freezeray.yml` parser (minimal: just `fixture_dir`)
+- [ ] SQL export runtime helper
+- [ ] Compile-time validation (config exists, fixture_dir defined)
 
 ### Phase 2: Testing & Validation
 
@@ -36,11 +84,11 @@ Make SwiftData schema management safe and predictable for production iOS/macOS a
 
 ### Phase 3: Configuration & Customization
 
-- [ ] Support custom project layouts via `.freezeray.yml`
-- [ ] Allow custom schema directory paths
-- [ ] Allow custom fixture output paths
-- [ ] Support for non-standard naming (e.g., `DataSchemaV1.swift`)
-- [ ] Dry-run mode (`--dry-run` flag)
+- [ ] Minimal `.freezeray.yml` (just `fixture_dir`)
+- [ ] Macro compile-time validation of config
+- [ ] Support for optional `data_namespace_prefix` in config
+- [ ] Custom test class name generation
+- [ ] Error messages with file/line info
 
 ### Phase 4: Developer Experience
 
@@ -88,22 +136,16 @@ Make SwiftData schema management safe and predictable for production iOS/macOS a
 
 ### Current Issues
 
-1. **Hard-coded paths:** Assumes `app/Clearly/...` structure from Clearly project
-2. **No config file:** Can't customize paths yet
-3. **Limited error handling:** Crashes on missing directories
-4. **No tests:** Zero test coverage
-5. **Xcode-specific:** Assumes xcodebuild is available and project is named "Clearly"
-6. **Simulator dependency:** Requires specific simulator to be installed
-7. **No diff preview:** Can't see what changed before freezing
+1. **Not yet implemented** - switching from script to macro approach
+2. **No example project** - need sample SwiftData app
+3. **Macro testing** - need comprehensive macro expansion tests
 
 ### Blockers for Public Release
 
-1. ❌ **Hard-coded project name "Clearly"** in xcodebuild command
-2. ❌ **No project structure detection** (assumes Clearly's layout)
-3. ❌ **No error handling** for missing Xcode/simulators
-4. ❌ **No tests**
-5. ❌ **No documentation** beyond README
-6. ❌ **No examples** (sample project)
+1. ❌ **Core macro implementation** not complete
+2. ❌ **Macro expansion tests** not written
+3. ❌ **Example project** to demonstrate usage
+4. ❌ **Documentation** for macro-based approach
 
 ---
 
@@ -247,14 +289,36 @@ FreezeRay/
 
 ---
 
-## Next Steps (Immediate)
+## Implementation Plan
 
-1. **Remove hard-coded "Clearly" references**
-2. **Add project auto-detection**
-3. **Write tests**
-4. **Create example project**
-5. **Refine README**
-6. **Test on fresh machine**
+### Step 1: Package Structure
+1. Create Swift macro package with three targets:
+   - `FreezeRay` - Public API (macro declarations)
+   - `FreezeRayMacros` - Macro implementation (SwiftSyntax)
+   - `FreezeRayClient` - Runtime helpers (SQL export)
+2. Set up test target with macro expansion tests
+3. Add example app demonstrating usage
+
+### Step 2: Core Macros
+1. Implement `@FreezeSchema(version:)`:
+   - Read `.freezeray.yml` to get `fixture_dir`
+   - Generate test method that creates schema and exports SQL
+   - Validate version number is positive integer
+2. Implement `@GenerateMigrationTests`:
+   - Read `.freezeray.yml` to get `fixture_dir`
+   - Scan for all `@FreezeSchema` versions
+   - Generate smoke tests for each migration path
+
+### Step 3: Runtime Helpers
+1. SQL export helper - creates ModelContainer, exports schema via sqlite3
+2. YAML parser - minimal, just reads `fixture_dir`
+3. Migration test helpers - setup/teardown for migration tests
+
+### Step 4: Testing & Documentation
+1. Write macro expansion tests
+2. Create example SwiftData app with 2-3 schemas
+3. Update README for macro-based usage
+4. Test on Clearly app
 
 Once these are done, we can do a soft launch to iOS community for feedback.
 

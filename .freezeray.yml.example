@@ -1,0 +1,5 @@
+# FreezeRay Configuration
+# Copy to .freezeray.yml and customize for your project
+
+# Directory where frozen schema SQL files are saved
+fixture_dir: app/MyAppTests/Fixtures/SwiftData

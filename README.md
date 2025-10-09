@@ -2,16 +2,16 @@
 
 > Freeze SwiftData schemas for safe production releases
 
-FreezeRay is a command-line tool that generates immutable SQL snapshots of SwiftData schema versions and creates migration smoke tests. It prevents accidental schema changes from reaching production by freezing schemas before release.
+FreezeRay is a **Swift macro package** that generates test methods to freeze SwiftData schema versions and validate migration paths. It prevents accidental schema changes from reaching production by creating immutable SQL snapshots during your test runs.
 
 ## Features
 
-- ❄️ **Freezes schemas** by generating SQL snapshots directly from SwiftData models
-- 🧪 **Generates migration smoke tests** to validate migration paths work without crashing
-- ✅ **Validates frozen schemas** to prevent breaking changes
-- 🔄 **Integrates with CI/CD** (fails builds if schemas change after freeze)
-- 📝 **YAML configuration** for explicit control over schema paths
-- 🚀 **Fast** - uses SwiftSyntax for AST parsing and direct SQL generation
+- ❄️ **Macro-based** - Tight integration with your codebase via Swift macros
+- 🧪 **Auto-generates tests** - Freeze tests and migration smoke tests from annotations
+- ✅ **Compile-time validation** - Errors if config missing or malformed
+- 🔄 **Zero orchestration** - Just run tests normally with `⌘U`
+- 📝 **Minimal config** - Single `.freezeray.yml` with just `fixture_dir`
+- 🚀 **Type-safe** - Compiler validates everything
 
 ## Installation
 
@@ -42,84 +42,124 @@ cp .build/release/freezeray /usr/local/bin/
 
 ## Quick Start
 
-### 1. Create Configuration
+### 1. Add FreezeRay Package
 
-Copy the example config and customize for your project:
+Add to your test target's dependencies:
 
-```bash
-cp .freezeray.yml.example .freezeray.yml
+```swift
+dependencies: [
+    .package(url: "https://github.com/trinsic/FreezeRay.git", from: "1.0.0")
+]
 ```
 
-Edit `.freezeray.yml` to specify your schema files in migration order:
+### 2. Create Configuration
+
+Create `.freezeray.yml` in your project root:
 
 ```yaml
-schemas:
-  - version: 1
-    identifier: SchemaV1
-    path: app/MyApp/Data/SwiftData/Schemas/SchemaV1.swift
-  - version: 2
-    identifier: SchemaV2
-    path: app/MyApp/Data/SwiftData/Schemas/SchemaV2.swift
-
 fixture_dir: app/MyAppTests/Fixtures/SwiftData
-test_output: app/MyAppTests/Generated/MigrationSmokeTests.swift
-project: app/MyApp.xcodeproj
-scheme: MyApp
-test_target: MyAppTests
-migration_plan: MigrationPlan
 ```
 
-### 2. Check Schema Status
+### 3. Annotate Schemas
+
+Add `@FreezeSchema` to your schema versions:
+
+```swift
+import FreezeRay
+
+@FreezeSchema(version: 1)
+enum SchemaV1: VersionedSchema {
+    static let versionIdentifier = Schema.Version(1, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        [User.self]
+    }
+}
+
+@FreezeSchema(version: 2)
+enum SchemaV2: VersionedSchema {
+    static let versionIdentifier = Schema.Version(2, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        [User.self, Post.self]
+    }
+}
+```
+
+### 4. Annotate Migration Plan
+
+Add `@GenerateMigrationTests` to your migration plan:
+
+```swift
+import FreezeRay
+
+@GenerateMigrationTests
+enum MigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [SchemaV1.self, SchemaV2.self]
+    }
+    static var stages: [MigrationStage] {
+        [migrateV1toV2]
+    }
+}
+```
+
+### 5. Run Tests
+
+Press `⌘U` or run tests from CLI:
 
 ```bash
-freezeray
+xcodebuild test -scheme MyApp
 ```
 
-Output:
-```
-📋 Schema Status:
-   ✅ v1 (frozen)
-   ⚠️  v2 (not frozen)
-```
-
-### 3. Freeze Unfrozen Schemas
-
-```bash
-freezeray --freeze
-```
-
-This generates SQL snapshots for any unfrozen schema versions in `fixture_dir`.
-
-### 4. Generate Migration Smoke Tests
-
-```bash
-freezeray --generate-tests
-```
-
-Creates a test file that validates your migration path works without crashing.
+The macros generate:
+- `test_freezeV1()` - Exports v1-schema.sql
+- `test_freezeV2()` - Exports v2-schema.sql
+- `test_migrationV1toV2()` - Validates V1→V2 works
+- `test_migrationV1toV2()` - Validates full path works
 
 ## How It Works
 
-### Schema Detection
+### Macro Expansion
 
-FreezeRay scans your project for schema version files:
+The `@FreezeSchema` macro expands to:
 
+```swift
+@FreezeSchema(version: 1)
+enum SchemaV1: VersionedSchema { ... }
+
+// Expands to:
+func test_freezeV1() throws {
+    try FreezeRayClient.freezeSchema(
+        version: 1,
+        schemaType: SchemaV1.self,
+        fixtureDir: "app/MyAppTests/Fixtures/SwiftData"
+    )
+}
 ```
-YourApp/
-  Data/
-    SwiftData/
-      Schemas/
-        SchemaV1.swift  ← Detected as v1
-        SchemaV2.swift  ← Detected as v2
-        SchemaV3.swift  ← Detected as v3
+
+The `@GenerateMigrationTests` macro expands to:
+
+```swift
+@GenerateMigrationTests
+enum MigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [SchemaV1.self, SchemaV2.self, SchemaV3.self]
+    }
+}
+
+// Expands to:
+func test_migrationV1toV3() throws { ... }  // Full path
+func test_migrationV1toV2() throws { ... }  // Step 1
+func test_migrationV2toV3() throws { ... }  // Step 2
 ```
 
 ### Freezing Process
 
-1. Generates an empty SwiftData store with the schema
-2. Exports the SQLite schema as SQL
-3. Saves to `YourAppTests/Fixtures/SwiftData/vN-schema.sql`
-4. Future test runs compare against this snapshot
+When you run the generated tests:
+
+1. Creates temporary SwiftData container with the schema
+2. Exports SQLite schema using `sqlite3 .schema`
+3. Saves to `{fixture_dir}/v{N}-schema.sql`
+4. Future runs can compare against this frozen snapshot
 
 ### Example Frozen Schema
 

@@ -21,7 +21,7 @@ Add FreezeRay to your test target's dependencies in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/trinsic/FreezeRay.git", from: "1.0.0")
+    .package(url: "https://github.com/didgeoridoo/FreezeRay.git", from: "0.1.0")
 ],
 targets: [
     .testTarget(

@@ -39,8 +39,10 @@ echo ""
 # Test 3: Xcode build for iOS
 echo -e "${BLUE}▶ Test 3: Xcode build (iOS Simulator)${NC}"
 cd TestApp
+set +e  # Temporarily disable exit-on-error
 OUTPUT=$(xcodebuild -scheme TestApp -destination 'generic/platform=iOS Simulator' build 2>&1)
 EXIT_CODE=$?
+set -e  # Re-enable exit-on-error
 if [ $EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN}✅ iOS build passed${NC}"
 else
@@ -55,8 +57,10 @@ echo ""
 echo -e "${BLUE}▶ Test 4: Xcode tests (iOS Simulator)${NC}"
 cd TestApp
 # Use latest available iOS Simulator for testing (tests require concrete device)
+set +e  # Temporarily disable exit-on-error
 OUTPUT=$(xcodebuild test -scheme TestApp -destination 'platform=iOS Simulator,name=iPhone 16' 2>&1)
 EXIT_CODE=$?
+set -e  # Re-enable exit-on-error
 if [ $EXIT_CODE -eq 0 ] && echo "$OUTPUT" | grep -q "Test Suite.*passed"; then
     echo -e "${GREEN}✅ iOS Simulator Xcode tests passed${NC}"
 else

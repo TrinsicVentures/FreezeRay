@@ -220,6 +220,7 @@ public enum FreezeRayRuntime {
     // MARK: - Helpers
 
     private static func disableWAL(at url: URL) throws {
+        #if os(macOS)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
         process.arguments = [url.path, "PRAGMA journal_mode=DELETE;"]
@@ -235,9 +236,13 @@ public enum FreezeRayRuntime {
             let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             throw FreezeRayError.sqliteCommandFailed(output: output)
         }
+        #else
+        throw FreezeRayError.unsupportedPlatform
+        #endif
     }
 
     private static func exportSchemaSQL(from dbURL: URL, to outputURL: URL) throws {
+        #if os(macOS)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
         process.arguments = [dbURL.path, ".schema"]
@@ -256,6 +261,9 @@ public enum FreezeRayRuntime {
 
         let sqlData = pipe.fileHandleForReading.readDataToEndOfFile()
         try sqlData.write(to: outputURL)
+        #else
+        throw FreezeRayError.unsupportedPlatform
+        #endif
     }
 
     private static func generateSchemaJSON(schema: Schema) throws -> String {
@@ -297,6 +305,7 @@ public enum FreezeRayRuntime {
 public enum FreezeRayError: Error, CustomStringConvertible {
     case schemaDrift(version: String, expected: String, actual: String)
     case sqliteCommandFailed(output: String)
+    case unsupportedPlatform
 
     public var description: String {
         switch self {
@@ -312,6 +321,8 @@ public enum FreezeRayError: Error, CustomStringConvertible {
                 """
         case .sqliteCommandFailed(let output):
             return "❌ sqlite3 command failed: \(output)"
+        case .unsupportedPlatform:
+            return "❌ FreezeRay only runs on macOS (tests run on macOS even when targeting iOS)"
         }
     }
 }

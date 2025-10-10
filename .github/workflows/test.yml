@@ -1,0 +1,35 @@
+name: Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    name: Run Test Suite
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Select Xcode
+      run: sudo xcode-select -s /Applications/Xcode.app
+
+    - name: Show versions
+      run: |
+        swift --version
+        xcodebuild -version
+
+    - name: Run test suite
+      run: ./scripts/test.sh
+
+    - name: Upload test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: |
+          .build/
+          TestApp/.build/

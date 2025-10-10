@@ -40,11 +40,12 @@ echo ""
 echo -e "${BLUE}▶ Test 3: Xcode build (iOS Simulator)${NC}"
 cd TestApp
 OUTPUT=$(xcodebuild -scheme TestApp -destination 'generic/platform=iOS Simulator' build 2>&1)
-if [ $? -eq 0 ]; then
+EXIT_CODE=$?
+if [ $EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN}✅ iOS build passed${NC}"
 else
-    echo -e "${RED}❌ iOS build failed${NC}"
-    echo "$OUTPUT" | grep -A 5 "error:"
+    echo -e "${RED}❌ iOS build failed (exit code: $EXIT_CODE)${NC}"
+    echo "$OUTPUT"
     FAILURES=$((FAILURES + 1))
 fi
 cd ..
@@ -54,11 +55,12 @@ echo ""
 echo -e "${BLUE}▶ Test 4: Xcode tests (macOS)${NC}"
 cd TestApp
 OUTPUT=$(xcodebuild test -scheme TestApp -destination 'platform=macOS' 2>&1)
-if echo "$OUTPUT" | grep -q "Test Suite.*passed"; then
+EXIT_CODE=$?
+if [ $EXIT_CODE -eq 0 ] && echo "$OUTPUT" | grep -q "Test Suite.*passed"; then
     echo -e "${GREEN}✅ macOS Xcode tests passed${NC}"
 else
-    echo -e "${RED}❌ macOS Xcode tests failed${NC}"
-    echo "$OUTPUT" | grep -A 5 "error:"
+    echo -e "${RED}❌ macOS Xcode tests failed (exit code: $EXIT_CODE)${NC}"
+    echo "$OUTPUT"
     FAILURES=$((FAILURES + 1))
 fi
 cd ..

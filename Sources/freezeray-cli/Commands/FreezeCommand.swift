@@ -19,32 +19,135 @@ struct FreezeCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Overwrite existing frozen fixtures (dangerous!)")
     var force: Bool = false
 
+    @Option(name: .long, help: "Override output directory for fixtures")
+    var output: String?
+
     func run() async throws {
         print("🔹 FreezeRay v0.4.0")
         print("🔹 Freezing schema version: \(version)")
         print("")
 
-        // TODO: Implement freeze workflow
-        // 1. Auto-detect project (or load from config)
-        // 2. Discover @Freeze(version: "\(version)") in source files
-        // 3. Build test target for iOS Simulator
-        // 4. Launch simulator
-        // 5. Run __freezeray_freeze_X_X_X() test
-        // 6. Find simulator container
-        // 7. Copy fixtures from ~/Documents/FreezeRay/Fixtures/\(version)/
-        // 8. Scaffold validation test if not exists
+        // 1. Auto-detect project
+        print("🔹 Auto-detecting project configuration...")
+        let workingDir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let projectPath = try SimulatorManager.discoverProject(in: workingDir)
+        print("   Found: \(projectPath.components(separatedBy: "/").last ?? projectPath)")
 
-        throw FreezeRayError.custom("freeze command not yet implemented - coming in v0.4.0")
+        let scheme = try SimulatorManager.discoverScheme(projectPath: projectPath)
+        print("   Scheme: \(scheme) (auto-detected)")
+
+        let testTarget = SimulatorManager.inferTestTarget(from: scheme)
+        print("   Test target: \(testTarget) (inferred)")
+        print("")
+
+        // 2. Discover @Freeze(version: "X.X.X") annotations
+        print("🔹 Parsing source files for @Freeze(version: \"\(version)\")...")
+        let sourcePaths = [workingDir.path]  // TODO: Support custom source paths from config
+        let discovery = try discoverMacros(in: sourcePaths)
+
+        guard let freezeAnnotation = discovery.freezeAnnotations.first(where: { $0.version == version }) else {
+            throw FreezeRayError.schemaNotFound(version: version)
+        }
+
+        print("   Found: \(freezeAnnotation.typeName) in \(freezeAnnotation.filePath)")
+        print("")
+
+        // 3. Check if fixtures already exist
+        let fixturesDir = output.map { URL(fileURLWithPath: $0) } ??
+            workingDir.appendingPathComponent("FreezeRay/Fixtures/\(version)")
+
+        if FileManager.default.fileExists(atPath: fixturesDir.path) && !force {
+            throw FreezeRayError.fixturesAlreadyExist(path: fixturesDir.path, version: version)
+        }
+
+        if force {
+            print("⚠️  WARNING: Overwriting existing fixtures for v\(version)")
+            print("⚠️  Frozen schemas should be immutable once shipped to production!")
+            print("")
+            try? FileManager.default.removeItem(at: fixturesDir)
+        }
+
+        // 4. Run freeze operation in simulator
+        let manager = SimulatorManager()
+        let simulatorFixturesURL = try manager.runFreezeInSimulator(
+            projectPath: projectPath,
+            scheme: scheme,
+            testTarget: testTarget,
+            schemaType: freezeAnnotation.typeName,
+            version: version,
+            simulator: simulator
+        )
+
+        // 5. Copy fixtures from simulator to project
+        print("🔹 Extracting fixtures from simulator...")
+        try FileManager.default.createDirectory(
+            at: fixturesDir.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        try FileManager.default.copyItem(at: simulatorFixturesURL, to: fixturesDir)
+
+        let files = try FileManager.default.contentsOfDirectory(atPath: fixturesDir.path)
+        for file in files {
+            print("   Copied: \(file) → \(fixturesDir.path)/")
+        }
+        print("")
+
+        // 6. Scaffold test if not exists
+        // TODO: Implement test scaffolding
+        print("🔹 Test scaffolding not yet implemented")
+        print("   Manual test creation required for now")
+        print("")
+
+        print("✅ Schema v\(version) frozen successfully!")
+        print("")
+        print("📝 Next steps:")
+        print("   1. Review fixtures: \(fixturesDir.path)")
+        print("   2. Create validation test for \(freezeAnnotation.typeName)")
+        print("   3. Add FreezeRay/ folder to Xcode project if needed")
+        print("   4. Run tests: xcodebuild test -scheme \(scheme)")
+        print("   5. Commit to git: git add FreezeRay/")
     }
 }
 
 enum FreezeRayError: Error, CustomStringConvertible {
     case custom(String)
+    case schemaNotFound(version: String)
+    case fixturesAlreadyExist(path: String, version: String)
 
     var description: String {
         switch self {
         case .custom(let message):
             return "❌ \(message)"
+        case .schemaNotFound(let version):
+            return """
+            ❌ No @Freeze(version: "\(version)") annotation found in source files
+
+            Please add @Freeze(version: "\(version)") to your schema:
+
+            @Freeze(version: "\(version)")
+            enum SchemaV\(version.replacingOccurrences(of: ".", with: "_")): VersionedSchema {
+                // ...
+            }
+            """
+        case .fixturesAlreadyExist(let path, let version):
+            return """
+            ❌ Fixtures for v\(version) already exist at \(path)
+
+            Frozen schemas are immutable. If you need to update the schema:
+              1. Create a new schema version (e.g., v\(nextVersion(version)))
+              2. Add a migration from v\(version) → v\(nextVersion(version))
+              3. Freeze the new version: freezeray freeze \(nextVersion(version))
+
+            To overwrite existing fixtures (⚠️  DANGEROUS):
+              freezeray freeze \(version) --force
+            """
         }
+    }
+
+    private func nextVersion(_ version: String) -> String {
+        let components = version.split(separator: ".").compactMap { Int($0) }
+        guard components.count == 3 else { return version }
+        return "\(components[0]).\(components[1]).\(components[2] + 1)"
     }
 }

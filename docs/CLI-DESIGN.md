@@ -1100,11 +1100,12 @@ $ freezeray freeze 1.0.0          # Freezes + scaffolds test
 - [x] **2025-10-10:** AST parser with SwiftSyntax (`MacroDiscovery.swift`) - discovers @Freeze & @AutoTests
 - [x] **2025-10-10:** Update `FreezeRayRuntime.freeze()` for iOS simulator (auto-detects and writes to Documents)
 - [x] **2025-10-10:** Command stubs (freeze, scaffold, list) - compile but not functional
+- [x] **2025-10-10:** Implement simulator orchestration (SimulatorManager - build, run, extract)
+- [x] **2025-10-10:** Implement project auto-detection (Xcode/SPM discovery)
+- [x] **2025-10-10:** Implement complete `freezeray freeze` workflow end-to-end
 - [ ] Add `FreezeRayRuntime.calculateSchemaChecksum()` public API (for scaffolded tests)
 - [ ] Implement test scaffolding generator (TestScaffolder exists but incomplete)
-- [ ] Implement project auto-detection (Xcode/SPM discovery)
-- [ ] Implement simulator orchestration (SimulatorManager - build, run, extract)
-- [ ] Implement complete `freezeray freeze` workflow end-to-end
+- [ ] Convert TestApp to real Xcode project for realistic testing
 - [ ] Documentation and examples
 
 ### Phase 2: Enhanced Validation (v0.5.0)

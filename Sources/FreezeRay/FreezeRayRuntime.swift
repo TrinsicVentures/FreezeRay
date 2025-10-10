@@ -2,6 +2,7 @@
 
 import Foundation
 import SwiftData
+import SQLite3
 
 /// Runtime client for freezing schemas and testing migrations.
 @available(macOS 14, iOS 17, *)
@@ -220,50 +221,72 @@ public enum FreezeRayRuntime {
     // MARK: - Helpers
 
     private static func disableWAL(at url: URL) throws {
-        #if os(macOS)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-        process.arguments = [url.path, "PRAGMA journal_mode=DELETE;"]
+        var db: OpaquePointer?
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        try process.run()
-        process.waitUntilExit()
-
-        guard process.terminationStatus == 0 else {
-            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            throw FreezeRayError.sqliteCommandFailed(output: output)
+        guard sqlite3_open(url.path, &db) == SQLITE_OK else {
+            let error = String(cString: sqlite3_errmsg(db))
+            sqlite3_close(db)
+            throw FreezeRayError.sqliteCommandFailed(output: "Failed to open database: \(error)")
         }
-        #else
-        throw FreezeRayError.unsupportedPlatform
-        #endif
+
+        defer { sqlite3_close(db) }
+
+        // Disable WAL mode by setting journal_mode to DELETE
+        var errorMsg: UnsafeMutablePointer<CChar>?
+        let result = sqlite3_exec(
+            db,
+            "PRAGMA journal_mode=DELETE;",
+            nil,
+            nil,
+            &errorMsg
+        )
+
+        if result != SQLITE_OK {
+            let error = errorMsg.map { String(cString: $0) } ?? "Unknown error"
+            sqlite3_free(errorMsg)
+            throw FreezeRayError.sqliteCommandFailed(output: "Failed to disable WAL: \(error)")
+        }
     }
 
     private static func exportSchemaSQL(from dbURL: URL, to outputURL: URL) throws {
-        #if os(macOS)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-        process.arguments = [dbURL.path, ".schema"]
+        var db: OpaquePointer?
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        try process.run()
-        process.waitUntilExit()
-
-        guard process.terminationStatus == 0 else {
-            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            throw FreezeRayError.sqliteCommandFailed(output: output)
+        guard sqlite3_open(dbURL.path, &db) == SQLITE_OK else {
+            let error = String(cString: sqlite3_errmsg(db))
+            sqlite3_close(db)
+            throw FreezeRayError.sqliteCommandFailed(output: "Failed to open database: \(error)")
         }
 
-        let sqlData = pipe.fileHandleForReading.readDataToEndOfFile()
-        try sqlData.write(to: outputURL)
-        #else
-        throw FreezeRayError.unsupportedPlatform
-        #endif
+        defer { sqlite3_close(db) }
+
+        // Query sqlite_master to get all schema DDL statements
+        var statement: OpaquePointer?
+        let query = """
+            SELECT sql FROM sqlite_master
+            WHERE sql IS NOT NULL
+            ORDER BY tbl_name, type DESC, name
+            """
+
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            let error = String(cString: sqlite3_errmsg(db))
+            throw FreezeRayError.sqliteCommandFailed(output: "Failed to prepare query: \(error)")
+        }
+
+        defer { sqlite3_finalize(statement) }
+
+        var schemaSQL = ""
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if let cString = sqlite3_column_text(statement, 0) {
+                let sql = String(cString: cString)
+                schemaSQL += sql + ";\n"
+            }
+        }
+
+        guard let data = schemaSQL.data(using: .utf8) else {
+            throw FreezeRayError.sqliteCommandFailed(output: "Failed to encode schema SQL")
+        }
+
+        try data.write(to: outputURL)
     }
 
     private static func generateSchemaJSON(schema: Schema) throws -> String {

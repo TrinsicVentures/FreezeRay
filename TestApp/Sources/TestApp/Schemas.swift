@@ -1,6 +1,10 @@
 import SwiftData
 import FreezeRay
 
+// Retroactive Sendable conformances for SwiftData types (required for Swift 6 concurrency)
+extension MigrationStage: @unchecked @retroactive Sendable { }
+extension Schema.Version: @unchecked @retroactive Sendable { }
+
 // MARK: - Schema Versions
 
 @FreezeRay.Freeze(version: "1.0.0")

@@ -1,184 +1,156 @@
-# FreezeRay Public Release Plan
+# FreezeRay Development Plan
 
-**Status:** Pre-release (internal use only)
-**Target:** v1.0.0 public release
-**License:** MIT
-**Repository:** https://github.com/trinsic/FreezeRay (to be created)
+> **Status:** LEGACY DOCUMENT - Kept for historical reference
+>
+> **Active Documents:**
+> - **[docs/CLI-DESIGN.md](docs/CLI-DESIGN.md)** - Current architectural source of truth (v0.4.0)
+> - **[CLAUDE.md](CLAUDE.md)** - Development guide (testing, CI, releases)
+>
+> This document reflects the original v0.1.0 vision (macro-only approach). While still useful for context, defer to CLI-DESIGN.md for current architecture decisions.
 
 ---
 
-## Mission
+## Original Vision (v0.1.0)
 
-Make SwiftData schema management safe and predictable for production iOS/macOS apps by providing Swift macros that freeze schemas and generate migration tests.
+**Mission:** Make SwiftData schema management safe and predictable for production iOS/macOS apps by providing Swift macros that freeze schemas and generate migration tests.
 
 **Core Value Prop:** "Freeze your schemas like you freeze your dependencies - know exactly what ships."
 
-## Architecture: Swift Macros
+---
 
-FreezeRay uses **Swift macros** instead of external scripts for tight integration with your codebase:
+## What Changed?
 
-**Benefits:**
-- ✅ **Compile-time generation** - Test methods generated during build
-- ✅ **Type-safe** - Compiler validates everything
-- ✅ **IDE integration** - Xcode understands it natively
-- ✅ **Zero orchestration** - Just run tests normally
-- ✅ **No external config** - Minimal `.freezeray.yml` for shared paths
+### Original Architecture (Macro-Only)
 
-**Usage:**
-```swift
-// Minimal config file
-// .freezeray.yml
-fixture_dir: app/ClearlyTests/Fixtures/SwiftData
+The original plan was to use **pure Swift macros** for everything:
+- `@FreezeSchema(version:)` → generates test method to export SQL
+- `@GenerateMigrationTests` → generates migration smoke tests
+- Minimal `.freezeray.yml` for config
+- All operations happen during test execution
 
-// In your schema files
-@FreezeSchema(version: 1)
-enum SchemaV1: VersionedSchema { ... }
+**Implementation:** v0.1.0 and v0.3.0 followed this approach.
 
-@FreezeSchema(version: 2)
-enum SchemaV2: VersionedSchema { ... }
+### Why We Changed (v0.4.0)
 
-// In your migration plan
-@GenerateMigrationTests
-enum MigrationPlan: SchemaMigrationPlan {
-    static var stages: [MigrationStage] { ... }
-}
-```
+**Critical issue discovered:** Macro-only approach requires filesystem write access to the source tree, which doesn't work in iOS simulator test sandboxes.
 
-**What the macros generate:**
-- `@FreezeSchema` → Test method that exports SQL to `{fixture_dir}/v{N}-schema.sql`
-- `@GenerateMigrationTests` → Smoke tests validating full migration path works
+**Solution:** Hybrid CLI + Macro approach
+- CLI handles freezing (writes to simulator, extracts fixtures)
+- Macros handle validation (read-only from bundle)
+- Tests are scaffolded (generated once, user customizes)
 
-**Package Structure:**
-```
-FreezeRay/
-  Sources/
-    FreezeRay/           # Public API (macro declarations)
-    FreezeRayMacros/     # Macro implementation (SwiftSyntax)
-    FreezeRayClient/     # Runtime helpers (SQL export, etc.)
-  Tests/
-    FreezeRayTests/      # Macro expansion tests
-  Examples/
-    SampleApp/           # Demo SwiftData app
-```
+**See:** [docs/CLI-DESIGN.md](docs/CLI-DESIGN.md) for full details.
 
 ---
 
-## Pre-Release Checklist (v0.1.0 → v1.0.0)
+## Historical Milestones
 
-### Phase 1: Core Functionality
+### Phase 1: Core Functionality ✅ COMPLETED (v0.1.0)
 
-- [ ] Macro package structure (FreezeRay, FreezeRayMacros, FreezeRayClient)
-- [ ] `@FreezeSchema` macro declaration and implementation
-- [ ] `@GenerateMigrationTests` macro declaration and implementation
-- [ ] `.freezeray.yml` parser (minimal: just `fixture_dir`)
-- [ ] SQL export runtime helper
-- [ ] Compile-time validation (config exists, fixture_dir defined)
+- ✅ Macro package structure (FreezeRay, FreezeRayMacros)
+- ✅ `@FreezeRay.Freeze` macro declaration and implementation
+- ✅ `@FreezeRay.AutoTests` macro declaration and implementation
+- ✅ SQL export runtime helper
+- ✅ SHA256-based drift detection
 
-### Phase 2: Testing & Validation
+### Phase 2: iOS Compatibility ✅ COMPLETED (v0.3.0)
 
-- [ ] Unit tests for schema detection logic
-- [ ] Integration tests with sample SwiftData project
-- [ ] Test across multiple Xcode versions (15.0, 16.0, 17.0)
-- [ ] Test with various project structures (CocoaPods, SPM, standalone)
-- [ ] Verify works with CloudKit-enabled schemas
+- ✅ Replaced Process() shell commands with SQLite C API
+- ✅ Cross-platform support (macOS + iOS Simulator)
+- ✅ No platform guards needed for core functionality
 
-### Phase 3: Configuration & Customization
+### Phase 3: CLI Architecture 🚧 IN PROGRESS (v0.4.0)
 
-- [ ] Minimal `.freezeray.yml` (just `fixture_dir`)
-- [ ] Macro compile-time validation of config
-- [ ] Support for optional `data_namespace_prefix` in config
-- [ ] Custom test class name generation
-- [ ] Error messages with file/line info
+**See [docs/CLI-DESIGN.md](docs/CLI-DESIGN.md) for detailed roadmap.**
 
-### Phase 4: Developer Experience
-
-- [ ] Helpful error messages (not just "failed to generate SQL")
-- [ ] Progress indicators for long-running operations
-- [ ] Diff preview before freezing
-- [ ] Interactive mode for conflict resolution
-- [ ] Verbose/debug logging mode (`--verbose`)
-
-### Phase 5: CI/CD Integration
-
-- [ ] GitHub Actions example workflow
-- [ ] GitLab CI example
-- [ ] Fastlane integration guide
-- [ ] Xcode Cloud integration guide
-- [ ] Exit codes for scripting (0 = all frozen, 1 = unfrozen, 2 = error)
-
-### Phase 6: Documentation
-
-- [ ] Complete README with examples
-- [ ] Troubleshooting guide
-- [ ] Migration guide from manual schema management
-- [ ] Best practices document
-- [ ] Architecture decision record (how it works internally)
-- [ ] Video walkthrough/demo
-
-### Phase 7: Distribution
-
-- [ ] Swift Package Manager (primary)
-- [ ] Homebrew tap (`brew install trinsic/tap/freezeray`)
-- [ ] Pre-built binaries for releases (GitHub Releases)
-- [ ] Optional: Mint support
-
-### Phase 8: Polish
-
-- [ ] Version check (warn if using old version)
-- [ ] Self-update command (`freezeray update`)
-- [ ] Telemetry opt-in (anonymized usage stats)
-- [ ] Man page generation
-- [ ] Shell completion (bash/zsh/fish)
+Key deliverables:
+- [ ] AST parser with SwiftSyntax
+- [ ] Simulator orchestration
+- [ ] Test scaffolding (not generation)
+- [ ] `freezeray freeze` command
+- [ ] Convention-over-configuration
 
 ---
 
-## Known Limitations (Pre-v1.0)
+## Original Checklist (Reference Only)
 
-### Current Issues
+### Pre-Release Checklist (v0.1.0 → v1.0.0)
 
-1. **Not yet implemented** - switching from script to macro approach
-2. **No example project** - need sample SwiftData app
-3. **Macro testing** - need comprehensive macro expansion tests
+Most items completed or superseded by CLI design. Current progress:
 
-### Blockers for Public Release
+#### Core Functionality ✅
+- ✅ Macro package structure
+- ✅ `@Freeze` and `@AutoTests` macros
+- ✅ SQL export runtime
+- ✅ Drift detection
 
-1. ❌ **Core macro implementation** not complete
-2. ❌ **Macro expansion tests** not written
-3. ❌ **Example project** to demonstrate usage
-4. ❌ **Documentation** for macro-based approach
+#### Testing & Validation ✅
+- ✅ Unit tests for macro expansion
+- ✅ Integration tests (TestApp)
+- ✅ Cross-platform testing (macOS + iOS)
+- ✅ Works with Swift Package Manager
+
+#### Configuration ⚠️ SUPERSEDED
+- ⚠️ `.freezeray.yml` planned, but v0.4.0 uses convention-over-configuration
+- ⚠️ Auto-detection replaces most config needs
+
+#### Developer Experience 🚧
+- ✅ Clear error messages
+- 🚧 CLI tool (in progress for v0.4.0)
+- 🚧 Interactive mode (planned)
+
+#### Documentation 🚧
+- ✅ Complete README
+- ✅ CLAUDE.md development guide
+- ✅ CLI-DESIGN.md architecture
+- 🚧 Video walkthrough (planned)
+
+#### Distribution 📋
+- ✅ Swift Package Manager
+- 📋 Homebrew (planned for CLI)
+- 📋 Pre-built binaries (planned for CLI)
 
 ---
 
-## Post-v1.0 Roadmap
+## Known Limitations (Historical)
+
+### Pre-v0.4.0 Issues (Being Addressed)
+
+1. **iOS sandbox limitations** - Freezing requires write access to source tree
+   - **Status:** Being fixed in v0.4.0 with CLI approach
+
+2. **Auto-generated tests not customizable** - Tests are regenerated, can't add assertions
+   - **Status:** Being fixed in v0.4.0 with scaffolding approach
+
+3. **No convention-over-configuration** - Requires explicit setup
+   - **Status:** Being fixed in v0.4.0 with auto-detection
+
+---
+
+## Post-v1.0 Roadmap (Still Relevant)
 
 ### v1.1: Schema Migration Validation
-
-- Validate that migrations actually work (not just freeze schemas)
-- Test migrations with sample data
+- Validate migrations with sample data
 - Detect lossy migrations (data deletion)
+- Performance benchmarks
 
 ### v1.2: Multi-Platform Support
-
-- Support for Linux (non-Xcode environments)
-- Support for other platforms (watchOS, tvOS, visionOS schemas)
+- watchOS, tvOS, visionOS schemas
+- Linux support (if applicable)
 
 ### v1.3: Advanced Features
-
-- Schema diff visualization (graphical)
-- Integration with SwiftData schema versioning
+- Schema diff visualization
 - Auto-generate migration code templates
-- Emergency schema update workflow (when frozen schema has bugs)
+- Emergency schema update workflow
 
 ### v2.0: Ecosystem Integration
-
 - Xcode extension/plugin
 - VS Code extension
-- SwiftPM plugin (run as `swift package freeze-schemas`)
-- Integration with popular schema migration tools
+- SwiftPM plugin (`swift package freeze-schemas`)
 
 ---
 
-## Success Metrics (Post-Launch)
+## Success Metrics (Still Relevant)
 
 ### Adoption
 - 100+ GitHub stars in first 3 months
@@ -186,153 +158,74 @@ FreezeRay/
 - Mentioned in SwiftData blogs/tutorials
 
 ### Quality
-- Zero critical bugs reported in first month
+- Zero critical bugs in first month
 - 95%+ test coverage
 - All major Xcode versions supported
 
 ### Community
 - 5+ community PRs merged
-- Active discussions in issues/discussions
+- Active discussions
 - Positive feedback from iOS community
 
 ---
 
-## Go-to-Market Strategy
+## Go-to-Market Strategy (Still Relevant)
 
 ### Announcement Channels
-1. **Blog post** on Trinsic Ventures blog
-2. **Tweet** from @TrinsicVentures
-3. **Post on Hacker News** ("Show HN: FreezeRay - Freeze SwiftData schemas for safe releases")
-4. **Swift Forums** announcement
-5. **Reddit** r/swift, r/iOSProgramming
-6. **iOS Dev Weekly** submission
+1. Blog post on Trinsic Ventures blog
+2. Tweet from @TrinsicVentures
+3. Hacker News ("Show HN: FreezeRay")
+4. Swift Forums announcement
+5. Reddit (r/swift, r/iOSProgramming)
+6. iOS Dev Weekly submission
 
 ### Content
 - "Why We Built FreezeRay" blog post
 - Video demo (< 2 minutes)
-- Before/after comparison (manual vs. FreezeRay)
+- Before/after comparison
 - Case study from Clearly app
 
 ### Timing
 - Launch alongside Clearly 1.2.0 release
-- Highlight real-world usage in production app
-- Show schema freeze automation in action
+- Highlight real-world production usage
 
 ---
 
-## Open Questions
+## Open Questions (Historical)
 
-1. **Name:** Is "FreezeRay" good? Alternatives: SchemaLock, SwiftFreeze, SchemaSnap
-2. **Scope:** Should it handle migrations too, or just freezing?
-3. **Pricing:** Free/OSS only, or paid enterprise features later?
-4. **Support:** Who maintains this long-term?
-5. **Alternatives:** What do others use? Can we learn from them?
+1. **Name:** "FreezeRay" stuck! ✅
+2. **Scope:** Decided on freeze + validation + migration testing ✅
+3. **Pricing:** Free/OSS (MIT) ✅
+4. **Support:** Maintained by Trinsic Ventures ✅
+5. **Alternatives:** Researched, none found for SwiftData ✅
 
 ---
 
-## Dependencies
+## Dependencies (Still Relevant)
 
 ### Required
 - **SwiftSyntax** (Apache 2.0) - AST parsing
-- **Swift Argument Parser** (Apache 2.0) - CLI args
+- **Swift Argument Parser** (Apache 2.0) - CLI args (v0.4.0+)
 
 ### Optional (Future)
 - **Rainbow** - Colored terminal output
 - **Progress.swift** - Progress bars
-- **Files** - File system utilities
 
 ---
 
-## Repository Setup
+## Timeline (Historical)
 
-### Pre-Launch
-```bash
-cd /Users/gk/Projects/Trinsic/FreezeRay
-git init
-git add .
-git commit -m "Initial commit - FreezeRay v0.1.0"
-```
+**Original estimate (Oct 2025):**
+- Week 1: Core functionality ✅ (v0.1.0)
+- Week 2-3: Testing, polish ✅ (v0.3.0)
+- Week 4-6: CLI implementation 🚧 (v0.4.0 in progress)
+- Week 7: Public v1.0.0 release 🎯
 
-### Public Launch
-```bash
-# Create GitHub repo: github.com/trinsic/FreezeRay
-git remote add origin git@github.com:trinsic/FreezeRay.git
-git push -u origin main
-git tag v1.0.0
-git push --tags
-```
-
-### Repository Structure
-```
-FreezeRay/
-  Sources/
-    main.swift
-    SchemaDetector.swift
-    SchemaFreezer.swift
-    GitCommitter.swift
-  Tests/
-    FreezeRayTests/
-      SchemaDetectorTests.swift
-      ...
-  Examples/
-    SampleSwiftDataApp/
-  Package.swift
-  README.md
-  LICENSE (MIT)
-  PLAN.md (this file)
-  CHANGELOG.md
-  .gitignore
-  .github/
-    workflows/
-      ci.yml
-```
-
----
-
-## Implementation Plan
-
-### Step 1: Package Structure
-1. Create Swift macro package with three targets:
-   - `FreezeRay` - Public API (macro declarations)
-   - `FreezeRayMacros` - Macro implementation (SwiftSyntax)
-   - `FreezeRayClient` - Runtime helpers (SQL export)
-2. Set up test target with macro expansion tests
-3. Add example app demonstrating usage
-
-### Step 2: Core Macros
-1. Implement `@FreezeSchema(version:)`:
-   - Read `.freezeray.yml` to get `fixture_dir`
-   - Generate test method that creates schema and exports SQL
-   - Validate version number is positive integer
-2. Implement `@GenerateMigrationTests`:
-   - Read `.freezeray.yml` to get `fixture_dir`
-   - Scan for all `@FreezeSchema` versions
-   - Generate smoke tests for each migration path
-
-### Step 3: Runtime Helpers
-1. SQL export helper - creates ModelContainer, exports schema via sqlite3
-2. YAML parser - minimal, just reads `fixture_dir`
-3. Migration test helpers - setup/teardown for migration tests
-
-### Step 4: Testing & Documentation
-1. Write macro expansion tests
-2. Create example SwiftData app with 2-3 schemas
-3. Update README for macro-based usage
-4. Test on Clearly app
-
-Once these are done, we can do a soft launch to iOS community for feedback.
-
----
-
-## Timeline
-
-- **Week 1 (Now):** Core functionality working internally
-- **Week 2-3:** Testing, polish, documentation
-- **Week 4:** Create example project, write tests
-- **Week 5:** Soft launch to small iOS dev community (Twitter, friends)
-- **Week 6:** Incorporate feedback, fix bugs
-- **Week 7:** Public v1.0.0 release
-- **Week 8+:** Community support, feature additions
+**Actual progress:**
+- v0.1.0: Released Oct 9, 2025 ✅
+- v0.3.0: Released Oct 10, 2025 ✅
+- v0.4.0: In development (CLI architecture pivot)
+- v1.0.0: TBD
 
 ---
 
@@ -345,4 +238,19 @@ Once these are done, we can do a soft launch to iOS community for feedback.
 
 ---
 
-*Last Updated: 2025-10-09*
+## References
+
+**Active Documents:**
+1. **[docs/CLI-DESIGN.md](docs/CLI-DESIGN.md)** - Current architecture (v0.4.0+)
+2. **[CLAUDE.md](CLAUDE.md)** - Development guide
+3. **[README.md](README.md)** - User documentation
+4. **[CHANGELOG.md](CHANGELOG.md)** - Version history
+
+**This Document:**
+- Created: 2025-10-09 (original plan)
+- Archived: 2025-10-10 (superseded by CLI-DESIGN.md)
+- Status: Historical reference only
+
+---
+
+*For current development plans, see [docs/CLI-DESIGN.md](docs/CLI-DESIGN.md)*

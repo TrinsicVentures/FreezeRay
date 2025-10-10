@@ -10,12 +10,15 @@ public struct AutoTestsMacro: MemberMacro {
         conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        // Get migration plan name
-        guard let structDecl = declaration.as(StructDeclSyntax.self) else {
-            throw MacroError.notAStruct
+        // Get migration plan name from either struct or enum
+        let planName: String
+        if let structDecl = declaration.as(StructDeclSyntax.self) {
+            planName = structDecl.name.text
+        } else if let enumDecl = declaration.as(EnumDeclSyntax.self) {
+            planName = enumDecl.name.text
+        } else {
+            throw MacroError.notAStructOrEnum
         }
-
-        let planName = structDecl.name.text
 
         // Generate test method inside the struct
         let testMethod: DeclSyntax = """
@@ -36,7 +39,7 @@ public struct AutoTestsMacro: MemberMacro {
 // MARK: - Errors
 
 extension MacroError {
-    static var notAStruct: MacroError {
-        .custom("@AutoTests can only be applied to struct declarations")
+    static var notAStructOrEnum: MacroError {
+        .custom("@AutoTests can only be applied to struct or enum declarations")
     }
 }

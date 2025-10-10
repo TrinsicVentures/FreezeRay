@@ -33,7 +33,7 @@ enum AppSchemaV3: VersionedSchema {
 // MARK: - Migration Plan
 
 @FreezeRay.AutoTests
-struct AppMigrations: SchemaMigrationPlan {
+enum AppMigrations: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [AppSchemaV1.self, AppSchemaV2.self, AppSchemaV3.self]
     }

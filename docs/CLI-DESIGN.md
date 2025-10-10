@@ -1096,12 +1096,15 @@ $ freezeray freeze 1.0.0          # Freezes + scaffolds test
 
 ### Phase 1: Core CLI (v0.4.0)
 - [x] Design document
-- [ ] Implement AST parser with SwiftSyntax
-- [ ] Implement test generator
-- [ ] Implement `freezeray freeze`
-- [ ] Implement `freezeray generate tests`
-- [ ] Update `FreezeRayRuntime` for iOS support
-- [ ] Add simulator orchestration
+- [x] **2025-10-10:** CLI package structure (freezeray-cli target with ArgumentParser)
+- [x] **2025-10-10:** AST parser with SwiftSyntax (`MacroDiscovery.swift`) - discovers @Freeze & @AutoTests
+- [x] **2025-10-10:** Update `FreezeRayRuntime.freeze()` for iOS simulator (auto-detects and writes to Documents)
+- [x] **2025-10-10:** Command stubs (freeze, scaffold, list) - compile but not functional
+- [ ] Add `FreezeRayRuntime.calculateSchemaChecksum()` public API (for scaffolded tests)
+- [ ] Implement test scaffolding generator (TestScaffolder exists but incomplete)
+- [ ] Implement project auto-detection (Xcode/SPM discovery)
+- [ ] Implement simulator orchestration (SimulatorManager - build, run, extract)
+- [ ] Implement complete `freezeray freeze` workflow end-to-end
 - [ ] Documentation and examples
 
 ### Phase 2: Enhanced Validation (v0.5.0)

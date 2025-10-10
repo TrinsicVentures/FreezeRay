@@ -10,9 +10,14 @@ let package = Package(
             name: "FreezeRay",
             targets: ["FreezeRay"]
         ),
+        .executable(
+            name: "freezeray",
+            targets: ["freezeray-cli"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-syntax.git", from: "600.0.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
     ],
     targets: [
         // Macro implementation
@@ -28,6 +33,17 @@ let package = Package(
         .target(
             name: "FreezeRay",
             dependencies: ["FreezeRayMacros"]
+        ),
+
+        // CLI tool
+        .executableTarget(
+            name: "freezeray-cli",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ],
+            path: "Sources/freezeray-cli"
         ),
 
         // Tests

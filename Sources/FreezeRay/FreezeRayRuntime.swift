@@ -10,15 +10,41 @@ public enum FreezeRayRuntime {
     /// Freeze a schema version by generating fixture artifacts.
     ///
     /// Generates:
-    /// - `FreezeRay/Fixtures/{version}/App.sqlite`
-    /// - `FreezeRay/Fixtures/{version}/schema.json`
-    /// - `FreezeRay/Fixtures/{version}/schema.sha256`
+    /// - `App.sqlite`
+    /// - `schema.json`
+    /// - `schema.sql`
+    /// - `schema.sha256`
+    ///
+    /// - Parameters:
+    ///   - schema: The schema type to freeze
+    ///   - version: Version identifier (e.g., "1.0.0")
+    ///   - outputDirectory: Custom output directory. If nil, uses default location based on platform:
+    ///     - iOS Simulator: ~/Documents/FreezeRay/Fixtures/{version}/
+    ///     - macOS: FreezeRay/Fixtures/{version}/ (relative to current directory)
     public static func freeze<S: VersionedSchema>(
         schema: S.Type,
-        version: String
+        version: String,
+        outputDirectory: URL? = nil
     ) throws {
+        // Determine output directory
+        let fixtureDir: URL
+        if let customDir = outputDirectory {
+            fixtureDir = customDir
+        } else {
+            #if targetEnvironment(simulator) && os(iOS)
+            // iOS Simulator: Write to Documents directory (accessible by CLI)
+            let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            fixtureDir = documentsDir
+                .appendingPathComponent("FreezeRay")
+                .appendingPathComponent("Fixtures")
+                .appendingPathComponent(version)
+            #else
+            // macOS or other: Write to relative path in source tree
+            fixtureDir = URL(fileURLWithPath: "FreezeRay/Fixtures/\(version)")
+            #endif
+        }
+
         // Create fixture directory
-        let fixtureDir = URL(fileURLWithPath: "FreezeRay/Fixtures/\(version)")
         try FileManager.default.createDirectory(
             at: fixtureDir,
             withIntermediateDirectories: true
@@ -75,7 +101,7 @@ public enum FreezeRayRuntime {
             encoding: .utf8
         )
 
-        print("✅ Frozen schema \(version) → FreezeRay/Fixtures/\(version)/")
+        print("✅ Frozen schema \(version) → \(fixtureDir.path)")
     }
 
     /// Check if sealed schema has drifted from current definition.

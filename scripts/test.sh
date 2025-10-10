@@ -51,15 +51,16 @@ fi
 cd ..
 echo ""
 
-# Test 4: Xcode tests on macOS
-echo -e "${BLUE}▶ Test 4: Xcode tests (macOS)${NC}"
+# Test 4: Xcode tests on iOS Simulator
+echo -e "${BLUE}▶ Test 4: Xcode tests (iOS Simulator)${NC}"
 cd TestApp
-OUTPUT=$(xcodebuild test -scheme TestApp -destination 'platform=macOS' 2>&1)
+# Use latest available iOS Simulator for testing (tests require concrete device)
+OUTPUT=$(xcodebuild test -scheme TestApp -destination 'platform=iOS Simulator,name=iPhone 16' 2>&1)
 EXIT_CODE=$?
 if [ $EXIT_CODE -eq 0 ] && echo "$OUTPUT" | grep -q "Test Suite.*passed"; then
-    echo -e "${GREEN}✅ macOS Xcode tests passed${NC}"
+    echo -e "${GREEN}✅ iOS Simulator Xcode tests passed${NC}"
 else
-    echo -e "${RED}❌ macOS Xcode tests failed (exit code: $EXIT_CODE)${NC}"
+    echo -e "${RED}❌ iOS Simulator Xcode tests failed (exit code: $EXIT_CODE)${NC}"
     echo "$OUTPUT"
     FAILURES=$((FAILURES + 1))
 fi

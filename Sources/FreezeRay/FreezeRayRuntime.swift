@@ -51,8 +51,10 @@ public enum FreezeRayRuntime {
         )
 
         // Create schema with WAL disabled
+        // Use versioned filenames to avoid conflicts in Xcode (e.g., App-1_0_0.sqlite)
+        let versionSafe = version.replacingOccurrences(of: ".", with: "_")
         let swiftDataSchema = Schema(versionedSchema: schema)
-        let storeURL = fixtureDir.appendingPathComponent("App.sqlite")
+        let storeURL = fixtureDir.appendingPathComponent("App-\(versionSafe).sqlite")
 
         // Remove existing if present
         try? FileManager.default.removeItem(at: storeURL)
@@ -81,22 +83,22 @@ public enum FreezeRayRuntime {
         // Disable WAL mode
         try disableWAL(at: storeURL)
 
-        // Generate schema.json
+        // Generate schema.json with versioned filename
         let schemaJSON = try generateSchemaJSON(schema: swiftDataSchema)
         try schemaJSON.write(
-            to: fixtureDir.appendingPathComponent("schema.json"),
+            to: fixtureDir.appendingPathComponent("schema-\(versionSafe).json"),
             atomically: true,
             encoding: .utf8
         )
 
-        // Generate schema SQL for checksum
-        let schemaSQLPath = fixtureDir.appendingPathComponent("schema.sql")
+        // Generate schema SQL for checksum with versioned filename
+        let schemaSQLPath = fixtureDir.appendingPathComponent("schema-\(versionSafe).sql")
         try exportSchemaSQL(from: storeURL, to: schemaSQLPath)
 
-        // Generate schema.sha256 from SQL (not binary SQLite)
+        // Generate schema.sha256 from SQL (not binary SQLite) with versioned filename
         let checksum = try calculateChecksum(of: schemaSQLPath)
         try checksum.write(
-            to: fixtureDir.appendingPathComponent("schema.sha256"),
+            to: fixtureDir.appendingPathComponent("schema-\(versionSafe).sha256"),
             atomically: true,
             encoding: .utf8
         )
@@ -109,8 +111,9 @@ public enum FreezeRayRuntime {
         schema: S.Type,
         version: String
     ) throws {
+        let versionSafe = version.replacingOccurrences(of: ".", with: "_")
         let fixtureDir = URL(fileURLWithPath: "FreezeRay/Fixtures/\(version)")
-        let checksumPath = fixtureDir.appendingPathComponent("schema.sha256")
+        let checksumPath = fixtureDir.appendingPathComponent("schema-\(versionSafe).sha256")
 
         guard FileManager.default.fileExists(atPath: checksumPath.path) else {
             // No sealed version yet - this is okay
@@ -201,7 +204,8 @@ public enum FreezeRayRuntime {
 
         for versionDir in versions {
             let version = versionDir.lastPathComponent
-            let fixtureURL = versionDir.appendingPathComponent("App.sqlite")
+            let versionSafe = version.replacingOccurrences(of: ".", with: "_")
+            let fixtureURL = versionDir.appendingPathComponent("App-\(versionSafe).sqlite")
 
             guard FileManager.default.fileExists(atPath: fixtureURL.path) else {
                 continue

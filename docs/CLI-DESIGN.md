@@ -1103,9 +1103,12 @@ $ freezeray freeze 1.0.0          # Freezes + scaffolds test
 - [x] **2025-10-10:** Implement simulator orchestration (SimulatorManager - build, run, extract)
 - [x] **2025-10-10:** Implement project auto-detection (Xcode/SPM discovery)
 - [x] **2025-10-10:** Implement complete `freezeray freeze` workflow end-to-end
+- [x] **2025-10-10:** Update FreezeRayRuntime to use versioned filenames (App-1_0_0.sqlite) to avoid Xcode conflicts
+- [x] **2025-10-10:** Create FreezeRayTestApp Xcode project (awaiting manual Xcode setup)
+- [ ] Complete FreezeRayTestApp Xcode setup (add package dependency, folder references)
 - [ ] Add `FreezeRayRuntime.calculateSchemaChecksum()` public API (for scaffolded tests)
 - [ ] Implement test scaffolding generator (TestScaffolder exists but incomplete)
-- [ ] Convert TestApp to real Xcode project for realistic testing
+- [ ] End-to-end CLI test with FreezeRayTestApp
 - [ ] Documentation and examples
 
 ### Phase 2: Enhanced Validation (v0.5.0)
@@ -1191,6 +1194,15 @@ $ freezeray freeze 1.0.0          # Freezes + scaffolds test
 - Allow override via `--simulator NAME`
 - Validate simulator exists before running
 - Fail with clear message if not found
+
+### 9. Versioned fixture filenames
+**Decision:** Use version suffix in filenames to avoid Xcode conflicts.
+- Xcode requires unique filenames even with folder references
+- Pattern: `{basename}-{version_safe}.{extension}`
+- Example: `App-1_0_0.sqlite`, `schema-2_0_0.json`
+- Version safe: Replace `.` with `_` (e.g., `1.0.0` → `1_0_0`)
+- Use dash separator: `App-1_0_0.sqlite` (not `App1_0_0.sqlite`)
+- Applies to: `App.sqlite`, `schema.json`, `schema.sql`, `schema.sha256`
 
 ---
 

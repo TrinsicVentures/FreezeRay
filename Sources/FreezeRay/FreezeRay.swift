@@ -2,13 +2,13 @@
 //
 // Usage:
 //
-//   @FreezeRay.Freeze(version: "1.4.0")
+//   @FreezeRay.FreezeSchema(version: "1.4.0")
 //   enum AppSchemaV1: VersionedSchema { ... }
 //
-//   @FreezeRay.AutoTests
+//   @FreezeRay.TestMigrations
 //   struct AppMigrations: SchemaMigrationPlan { ... }
 
-/// Freeze a shipped schema version by generating an immutable fixture.
+/// Freeze a shipped VersionedSchema by generating an immutable fixture.
 ///
 /// Generates:
 /// - `FreezeRay/Fixtures/{version}/App.sqlite` - Canonical SQLite database
@@ -19,7 +19,7 @@
 ///
 /// Example:
 /// ```swift
-/// @FreezeRay.Freeze(version: "1.4.0")
+/// @FreezeRay.FreezeSchema(version: "1.4.0")
 /// enum AppSchemaV1: VersionedSchema {
 ///     static var versionIdentifier = Schema.Version(1, 4, 0)
 ///     static var models: [any PersistentModel.Type] { [User.self] }
@@ -28,24 +28,27 @@
 ///
 /// - Parameter version: Version identifier (e.g., "1.4.0")
 @attached(member, names: arbitrary)
-public macro Freeze(version: String) = #externalMacro(
+public macro FreezeSchema(version: String) = #externalMacro(
     module: "FreezeRayMacros",
     type: "FreezeMacro"
 )
 
-/// Automatically generate migration smoke tests for all sealed fixtures.
+/// Automatically generate migration smoke tests for all frozen fixtures.
 ///
-/// Generates test methods that:
-/// 1. Copy each sealed fixture to a temp directory
-/// 2. Boot current code (with latest schema)
-/// 3. Run SwiftData migration using the SchemaMigrationPlan
-/// 4. Perform integrity checks (open, fetch, basic queries)
+/// Apply this macro to your SchemaMigrationPlan to scaffold migration tests.
+/// Tests are generated once and can be customized by the user.
+///
+/// Each migration test:
+/// 1. Loads a frozen fixture from the previous version
+/// 2. Runs your real MigrationPlan code
+/// 3. Verifies the migration completes without crashing
+/// 4. Provides TODO markers for custom data validation
 ///
 /// Any crash or error → test fails (you catch it before customers do).
 ///
 /// Example:
 /// ```swift
-/// @FreezeRay.AutoTests
+/// @FreezeRay.TestMigrations
 /// struct AppMigrations: SchemaMigrationPlan {
 ///     static var schemas: [any VersionedSchema.Type] {
 ///         [AppSchemaV1.self, AppSchemaV2.self]
@@ -56,7 +59,7 @@ public macro Freeze(version: String) = #externalMacro(
 /// }
 /// ```
 @attached(member, names: arbitrary)
-public macro AutoTests() = #externalMacro(
+public macro TestMigrations() = #externalMacro(
     module: "FreezeRayMacros",
     type: "AutoTestsMacro"
 )

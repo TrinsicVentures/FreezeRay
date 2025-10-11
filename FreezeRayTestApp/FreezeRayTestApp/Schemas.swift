@@ -7,7 +7,7 @@ extension Schema.Version: @unchecked @retroactive Sendable { }
 
 // MARK: - Schema Versions
 
-@FreezeRay.Freeze(version: "1.0.0")
+@FreezeRay.FreezeSchema(version: "1.0.0")
 enum AppSchemaV1: VersionedSchema {
     static let versionIdentifier = Schema.Version(1, 0, 0)
 
@@ -16,7 +16,7 @@ enum AppSchemaV1: VersionedSchema {
     }
 }
 
-@FreezeRay.Freeze(version: "2.0.0")
+@FreezeRay.FreezeSchema(version: "2.0.0")
 enum AppSchemaV2: VersionedSchema {
     static let versionIdentifier = Schema.Version(2, 0, 0)
 
@@ -25,7 +25,8 @@ enum AppSchemaV2: VersionedSchema {
     }
 }
 
-// Current HEAD - not frozen yet
+// Current HEAD - ready to freeze
+@FreezeRay.FreezeSchema(version: "3.0.0")
 enum AppSchemaV3: VersionedSchema {
     static let versionIdentifier = Schema.Version(3, 0, 0)
 
@@ -36,7 +37,7 @@ enum AppSchemaV3: VersionedSchema {
 
 // MARK: - Migration Plan
 
-@FreezeRay.AutoTests
+@FreezeRay.TestMigrations
 enum AppMigrations: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [AppSchemaV1.self, AppSchemaV2.self, AppSchemaV3.self]

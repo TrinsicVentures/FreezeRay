@@ -26,29 +26,72 @@ public enum FreezeRayRuntime {
         version: String,
         outputDirectory: URL? = nil
     ) throws {
+        // CRITICAL: Write a marker file IMMEDIATELY to prove this function was called
+        if let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let markerFile = docsDir.appendingPathComponent("FREEZERAY_WAS_CALLED.txt")
+            try? "Function was called!".write(to: markerFile, atomically: true, encoding: .utf8)
+        }
+
+        // Write debug log to a file we can read later
+        let debugLog = { (message: String) in
+            if let docsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let logFile = docsDir.appendingPathComponent("freezeray_debug.log")
+                let timestamp = Date().description
+                let logMessage = "[\(timestamp)] \(message)\n"
+                if let data = logMessage.data(using: .utf8) {
+                    if FileManager.default.fileExists(atPath: logFile.path) {
+                        if let handle = try? FileHandle(forWritingTo: logFile) {
+                            handle.seekToEndOfFile()
+                            handle.write(data)
+                            try? handle.close()
+                        }
+                    } else {
+                        try? data.write(to: logFile)
+                    }
+                }
+            }
+            print(message)  // Also print to console
+        }
+
+        debugLog("🔍 FreezeRayRuntime.freeze() called")
+        debugLog("   Schema: \(S.self)")
+        debugLog("   Version: \(version)")
+        debugLog("   Custom output: \(outputDirectory?.path ?? "nil")")
+
         // Determine output directory
         let fixtureDir: URL
         if let customDir = outputDirectory {
+            debugLog("   ℹ️  Using custom output directory")
             fixtureDir = customDir
         } else {
             #if targetEnvironment(simulator) && os(iOS)
             // iOS Simulator: Write to Documents directory (accessible by CLI)
-            let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            debugLog("   ℹ️  Detected iOS Simulator environment")
+            guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+                debugLog("   ❌ Failed to get Documents directory!")
+                throw FreezeRayError.sqliteCommandFailed(output: "Could not locate Documents directory")
+            }
+            debugLog("   📁 Documents dir: \(documentsDir.path)")
             fixtureDir = documentsDir
                 .appendingPathComponent("FreezeRay")
                 .appendingPathComponent("Fixtures")
                 .appendingPathComponent(version)
             #else
             // macOS or other: Write to relative path in source tree
+            debugLog("   ℹ️  Using macOS/default environment")
             fixtureDir = URL(fileURLWithPath: "FreezeRay/Fixtures/\(version)")
             #endif
         }
 
+        debugLog("   🎯 Target directory: \(fixtureDir.path)")
+
         // Create fixture directory
+        debugLog("   📂 Creating fixture directory...")
         try FileManager.default.createDirectory(
             at: fixtureDir,
             withIntermediateDirectories: true
         )
+        debugLog("   ✅ Directory created successfully")
 
         // Create schema with WAL disabled
         // Use versioned filenames to avoid conflicts in Xcode (e.g., App-1_0_0.sqlite)
@@ -56,8 +99,13 @@ public enum FreezeRayRuntime {
         let swiftDataSchema = Schema(versionedSchema: schema)
         let storeURL = fixtureDir.appendingPathComponent("App-\(versionSafe).sqlite")
 
+        print("   💾 Creating SQLite database: \(storeURL.lastPathComponent)")
+
         // Remove existing if present
-        try? FileManager.default.removeItem(at: storeURL)
+        if FileManager.default.fileExists(atPath: storeURL.path) {
+            print("   🗑️  Removing existing database")
+            try? FileManager.default.removeItem(at: storeURL)
+        }
 
         let config = ModelConfiguration(
             schema: swiftDataSchema,
@@ -66,6 +114,7 @@ public enum FreezeRayRuntime {
             cloudKitDatabase: .none
         )
 
+        print("   🏗️  Creating ModelContainer...")
         do {
             let container = try ModelContainer(
                 for: swiftDataSchema,
@@ -74,36 +123,97 @@ public enum FreezeRayRuntime {
 
             let context = ModelContext(container)
             try context.save()
+            print("   ✅ ModelContainer created and saved")
+        } catch {
+            print("   ❌ Failed to create ModelContainer: \(error)")
+            throw error
         }
 
         // Let container/context deallocate before modifying WAL
         // Sleep briefly to ensure file handles are closed
+        print("   ⏳ Waiting for file handles to close...")
         Thread.sleep(forTimeInterval: 0.1)
 
+        // Verify SQLite file was created
+        if FileManager.default.fileExists(atPath: storeURL.path) {
+            let attrs = try? FileManager.default.attributesOfItem(atPath: storeURL.path)
+            let size = (attrs?[.size] as? Int) ?? 0
+            print("   ✅ SQLite file created: \(size) bytes")
+        } else {
+            print("   ❌ SQLite file not found at: \(storeURL.path)")
+            throw FreezeRayError.sqliteCommandFailed(output: "SQLite file was not created")
+        }
+
         // Disable WAL mode
+        print("   🔧 Disabling WAL mode...")
         try disableWAL(at: storeURL)
+        print("   ✅ WAL disabled")
 
         // Generate schema.json with versioned filename
+        print("   📄 Generating schema.json...")
         let schemaJSON = try generateSchemaJSON(schema: swiftDataSchema)
+        let jsonPath = fixtureDir.appendingPathComponent("schema-\(versionSafe).json")
         try schemaJSON.write(
-            to: fixtureDir.appendingPathComponent("schema-\(versionSafe).json"),
+            to: jsonPath,
             atomically: true,
             encoding: .utf8
         )
+        print("   ✅ schema.json written: \(jsonPath.lastPathComponent)")
 
         // Generate schema SQL for checksum with versioned filename
+        print("   📝 Exporting schema SQL...")
         let schemaSQLPath = fixtureDir.appendingPathComponent("schema-\(versionSafe).sql")
         try exportSchemaSQL(from: storeURL, to: schemaSQLPath)
+        print("   ✅ schema.sql exported: \(schemaSQLPath.lastPathComponent)")
 
         // Generate schema.sha256 from SQL (not binary SQLite) with versioned filename
+        print("   🔐 Calculating checksum...")
         let checksum = try calculateChecksum(of: schemaSQLPath)
+        let checksumPath = fixtureDir.appendingPathComponent("schema-\(versionSafe).sha256")
         try checksum.write(
-            to: fixtureDir.appendingPathComponent("schema-\(versionSafe).sha256"),
+            to: checksumPath,
             atomically: true,
             encoding: .utf8
         )
+        print("   ✅ Checksum written: \(checksum.prefix(16))...")
+
+        // List all files created
+        print("   📋 Files created:")
+        let files = try FileManager.default.contentsOfDirectory(atPath: fixtureDir.path)
+        for file in files.sorted() {
+            let path = fixtureDir.appendingPathComponent(file)
+            let attrs = try? FileManager.default.attributesOfItem(atPath: path.path)
+            let size = (attrs?[.size] as? Int) ?? 0
+            print("      - \(file) (\(size) bytes)")
+        }
 
         print("✅ Frozen schema \(version) → \(fixtureDir.path)")
+        print("") // Add blank line for readability
+
+        // CRITICAL: When running in test environment, also copy fixtures to /tmp
+        // so the CLI can extract them (XCTestDevices directories are ephemeral)
+        #if targetEnvironment(simulator) && os(iOS)
+        debugLog("   📦 Copying fixtures to /tmp for CLI extraction...")
+        let tmpExportDir = URL(fileURLWithPath: "/tmp/FreezeRay/Fixtures/\(version)")
+        try? FileManager.default.createDirectory(at: tmpExportDir, withIntermediateDirectories: true)
+
+        // Copy all files from fixtureDir to tmpExportDir
+        for file in files {
+            let sourceURL = fixtureDir.appendingPathComponent(file)
+            let destURL = tmpExportDir.appendingPathComponent(file)
+            try? FileManager.default.removeItem(at: destURL) // Remove if exists
+            try? FileManager.default.copyItem(at: sourceURL, to: destURL)
+        }
+        debugLog("   ✅ Fixtures copied to: \(tmpExportDir.path)")
+
+        // Also write a metadata file with the original path
+        let metadata = """
+        Original path: \(fixtureDir.path)
+        Exported at: \(Date())
+        Version: \(version)
+        """
+        try? metadata.write(to: tmpExportDir.appendingPathComponent("export_metadata.txt"), atomically: true, encoding: .utf8)
+        #endif
     }
 
     /// Check if sealed schema has drifted from current definition.

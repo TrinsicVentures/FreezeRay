@@ -47,20 +47,19 @@ struct SimulatorManager {
         version: String,
         simulator: String = "iPhone 16"
     ) throws -> URL {
-        // Validate simulator exists
-        try validateSimulator(simulator)
+        // Validate simulator exists and get its UUID
+        let simulatorID = try getSimulatorID(simulator)
+        print("   Simulator ID: \(simulatorID)")
 
-        // 1. Build test target
-        print("🔹 Building test target for iOS Simulator...")
-        try buildForTesting(
-            projectPath: projectPath,
-            scheme: scheme,
-            simulator: simulator
-        )
+        // Boot simulator if not already booted
+        print("   Booting simulator...")
+        try bootSimulator(simulatorID)
 
-        // 2. Run freeze test
-        print("🔹 Running freeze operation in simulator...")
-        let bundleID = try runFreezeTest(
+        // Build and run freeze test in one step
+        // Using 'test' instead of 'build-for-testing' + 'test-without-building'
+        // This ensures the newly generated test file gets compiled
+        print("🔹 Building and running freeze test in simulator...")
+        let bundleID = try buildAndRunFreezeTest(
             projectPath: projectPath,
             scheme: scheme,
             testTarget: testTarget,
@@ -68,20 +67,23 @@ struct SimulatorManager {
             simulator: simulator
         )
 
-        // 3. Find simulator container
-        print("🔹 Locating simulator container...")
-        let containerURL = try findSimulatorContainer(bundleID: bundleID, simulator: simulator)
-
-        // 4. Locate fixtures in simulator's Documents directory
-        let fixturesURL = containerURL
-            .appendingPathComponent("Documents")
-            .appendingPathComponent("FreezeRay")
-            .appendingPathComponent("Fixtures")
-            .appendingPathComponent(version)
+        // 3. Extract fixtures from /tmp (where FreezeRayRuntime exports them)
+        // The runtime automatically copies fixtures to /tmp during test execution
+        // because XCTestDevices directories are ephemeral
+        print("🔹 Extracting fixtures from /tmp...")
+        let fixturesURL = URL(fileURLWithPath: "/tmp/FreezeRay/Fixtures/\(version)")
 
         // Verify fixtures exist
         guard FileManager.default.fileExists(atPath: fixturesURL.path) else {
             throw SimulatorError.fixturesNotFound(fixturesURL)
+        }
+
+        // List fixtures found
+        if let files = try? FileManager.default.contentsOfDirectory(atPath: fixturesURL.path) {
+            print("   Found \(files.count) fixture files:")
+            for file in files.sorted() {
+                print("      - \(file)")
+            }
         }
 
         return fixturesURL
@@ -99,35 +101,7 @@ struct SimulatorManager {
         }
     }
 
-    private func buildForTesting(
-        projectPath: String,
-        scheme: String,
-        simulator: String
-    ) throws {
-        let projectArg: String
-        if projectPath.hasSuffix(".xcworkspace") {
-            projectArg = "-workspace"
-        } else {
-            projectArg = "-project"
-        }
-
-        let destination = "platform=iOS Simulator,name=\(simulator)"
-
-        let output = try shell(
-            "xcodebuild",
-            projectArg, projectPath,
-            "-scheme", scheme,
-            "-destination", destination,
-            "build-for-testing"
-        )
-
-        // Check for build failures
-        if output.contains("** BUILD FAILED **") {
-            throw SimulatorError.buildFailed(output: output)
-        }
-    }
-
-    private func runFreezeTest(
+    private func buildAndRunFreezeTest(
         projectPath: String,
         scheme: String,
         testTarget: String,
@@ -144,42 +118,82 @@ struct SimulatorManager {
         let destination = "platform=iOS Simulator,name=\(simulator)"
 
         // The test should be named FreezeSchemaV{version}
-        // e.g., for version "1.0.0", test name is "FreezeSchemaV1_0_0"
+        // e.g., for version "1.0.0", test name is "FreezeSchemaV1_0_0_Test"
         let versionSafe = version.replacingOccurrences(of: ".", with: "_")
-        let testName = "\(testTarget)/FreezeSchemaV\(versionSafe)"
+        let testName = "\(testTarget)/FreezeSchemaV\(versionSafe)_Test"
 
+        // Use 'test' (not 'build-for-testing' + 'test-without-building')
+        // This ensures the newly generated test file gets compiled
         let output = try shell(
             "xcodebuild",
             projectArg, projectPath,
             "-scheme", scheme,
             "-destination", destination,
-            "test-without-building",
+            "test",
             "-only-testing:\(testName)"
         )
+
+        // Check for build failures
+        if output.contains("** BUILD FAILED **") {
+            throw SimulatorError.buildFailed(output: output)
+        }
 
         // Check for test failures
         if output.contains("** TEST FAILED **") {
             throw SimulatorError.testFailed(output: output)
         }
 
-        // Extract bundle ID from output
-        // Look for pattern like: "Test target ClearlyTests.xctest"
-        // Bundle ID is typically the scheme name
-        return scheme
+        // Get bundle ID from the built app's Info.plist
+        let bundleID = try extractBundleID(scheme: scheme)
+        return bundleID
+    }
+
+    private func extractBundleID(scheme: String) throws -> String {
+        // For an iOS app, the bundle ID is typically reverse DNS like com.company.AppName
+        // We'll try to read it from the most recently built app
+        // For now, use a reasonable default based on scheme name
+        // TODO: Actually parse Info.plist from DerivedData
+        return "com.example.\(scheme)"
+    }
+
+    private func getSimulatorID(_ name: String) throws -> String {
+        // List all devices and find the UUID for the given simulator name
+        let output = try shell("xcrun", "simctl", "list", "devices", "available")
+
+        // Parse output to find simulator UUID
+        // Format: "iPhone 17 (EF44DCDC-18F2-470E-A901-1B8C19A6D2E5) (Shutdown)"
+        let lines = output.components(separatedBy: .newlines)
+        for line in lines {
+            if line.contains(name) {
+                // Extract UUID from parentheses
+                if let uuidStart = line.range(of: "("),
+                   let uuidEnd = line.range(of: ")", range: uuidStart.upperBound..<line.endIndex) {
+                    let uuid = String(line[uuidStart.upperBound..<uuidEnd.lowerBound])
+                    // Validate it's a UUID format
+                    if uuid.count == 36 && uuid.contains("-") {
+                        return uuid
+                    }
+                }
+            }
+        }
+
+        throw SimulatorError.simulatorNotFound(name)
+    }
+
+    private func bootSimulator(_ simulatorID: String) throws {
+        // Try to boot the simulator, ignore if already booted
+        _ = try? shell("xcrun", "simctl", "boot", simulatorID)
     }
 
     private func findSimulatorContainer(
         bundleID: String,
-        simulator: String
+        simulatorID: String
     ) throws -> URL {
-        // First, boot the simulator if not already booted
-        _ = try? shell("xcrun", "simctl", "boot", simulator)
-        // Ignore errors - simulator may already be booted
-
-        // Get app container path
+        // Get app container path using simulator ID (not "booted")
+        // This avoids race conditions when simulator shuts down after test
         let output = try shell(
             "xcrun", "simctl", "get_app_container",
-            "booted",
+            simulatorID,
             bundleID,
             "data"
         )

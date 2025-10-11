@@ -25,14 +25,14 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
     var currentFile: String = ""
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
-        // Look for @Freeze(version: "X.Y.Z") or @FreezeRay.Freeze(version: "X.Y.Z")
-        // Also check for @AutoTests (MigrationPlan might be an enum)
+        // Look for @FreezeSchema(version: "X.Y.Z") or @FreezeRay.FreezeSchema(version: "X.Y.Z")
+        // Also check for @TestMigrations (MigrationPlan might be an enum)
         for attribute in node.attributes {
             if let attr = attribute.as(AttributeSyntax.self) {
                 let attrName = attr.attributeName.trimmedDescription
 
-                // Handle both @Freeze and @FreezeRay.Freeze
-                if attrName == "Freeze" || attrName.hasSuffix(".Freeze") {
+                // Handle both @FreezeSchema and @FreezeRay.FreezeSchema
+                if attrName == "FreezeSchema" || attrName.hasSuffix(".FreezeSchema") {
                     if let version = extractVersion(from: attr) {
                         let lineNumber = node.position.utf8Offset
                         freezeAnnotations.append(FreezeAnnotation(
@@ -44,8 +44,8 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
                     }
                 }
 
-                // Also check for @AutoTests on enums
-                if attrName == "AutoTests" || attrName.hasSuffix(".AutoTests") {
+                // Also check for @TestMigrations on enums
+                if attrName == "TestMigrations" || attrName.hasSuffix(".TestMigrations") {
                     let lineNumber = node.position.utf8Offset
                     autoTestsAnnotations.append(AutoTestsAnnotation(
                         typeName: node.name.text,
@@ -59,12 +59,12 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
-        // Look for @AutoTests or @FreezeRay.AutoTests on structs
+        // Look for @TestMigrations or @FreezeRay.TestMigrations on structs
         for attribute in node.attributes {
             if let attr = attribute.as(AttributeSyntax.self) {
                 let attrName = attr.attributeName.trimmedDescription
 
-                if attrName == "AutoTests" || attrName.hasSuffix(".AutoTests") {
+                if attrName == "TestMigrations" || attrName.hasSuffix(".TestMigrations") {
                     let lineNumber = node.position.utf8Offset
                     autoTestsAnnotations.append(AutoTestsAnnotation(
                         typeName: node.name.text,
@@ -100,7 +100,7 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
 
 // MARK: - Discovery Function
 
-/// Discovers all @Freeze and @AutoTests annotations in the given source paths
+/// Discovers all @FreezeSchema and @TestMigrations annotations in the given source paths
 func discoverMacros(in sourcePaths: [String]) throws -> (
     freezeAnnotations: [FreezeAnnotation],
     autoTestsAnnotations: [AutoTestsAnnotation]
@@ -167,9 +167,9 @@ enum MacroDiscoveryError: Error, CustomStringConvertible {
         case .pathNotFound(let path):
             return "Path not found: \(path)"
         case .noSchemasFound:
-            return "No @Freeze annotations found in source files"
+            return "No @FreezeSchema annotations found in source files"
         case .noMigrationPlanFound:
-            return "No @AutoTests annotations found in source files"
+            return "No @TestMigrations annotations found in source files"
         }
     }
 }

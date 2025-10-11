@@ -31,8 +31,8 @@ public struct FreezeMacro: MemberMacro {
 
         // Generate fixture freezing function
         // This will be called at build time to generate fixtures
+        // Note: No #if DEBUG guard - we want this available in test builds
         let freezeFunction: DeclSyntax = """
-            #if DEBUG
             @available(macOS 14, iOS 17, *)
             static func __freezeray_freeze_\(raw: version.replacingOccurrences(of: ".", with: "_"))() throws {
                 try FreezeRayRuntime.freeze(
@@ -40,13 +40,12 @@ public struct FreezeMacro: MemberMacro {
                     version: "\(raw: version)"
                 )
             }
-            #endif
             """
 
         // Generate drift check
         // This validates the frozen schema hasn't changed
+        // Note: No #if DEBUG guard - we want this available in test builds
         let driftCheck: DeclSyntax = """
-            #if DEBUG
             @available(macOS 14, iOS 17, *)
             static func __freezeray_check_\(raw: version.replacingOccurrences(of: ".", with: "_"))() throws {
                 try FreezeRayRuntime.checkDrift(
@@ -54,7 +53,6 @@ public struct FreezeMacro: MemberMacro {
                     version: "\(raw: version)"
                 )
             }
-            #endif
             """
 
         return [freezeFunction, driftCheck]

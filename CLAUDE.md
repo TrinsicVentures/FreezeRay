@@ -1,8 +1,8 @@
 # FreezeRay Development Guide
 
 **Version:** v0.4.0 (CLI-based architecture)
-**Status:** Active Development
-**Last Updated:** 2025-10-10
+**Status:** Active Development - Sprint 2 Phase 1 Complete
+**Last Updated:** 2025-10-11
 
 This document is the **definitive source of truth** for FreezeRay development, testing, CI/CD, and project organization.
 
@@ -41,7 +41,7 @@ FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ FreezeRay Package (Swift Package)                       │
-│ - Macros: @Freeze, @AutoTests                          │
+│ - Macros: @FreezeSchema, @TestMigrations               │
 │ - Runtime: FreezeRayRuntime (SQLite operations)        │
 │ - Platform: macOS 14+, iOS 17+                         │
 └─────────────────────────────────────────────────────────┘
@@ -58,8 +58,8 @@ FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas
                             ▼
 ┌─────────────────────────────────────────────────────────┐
 │ User's Xcode Project                                    │
-│ - Schemas with @Freeze(version: "X.Y.Z")               │
-│ - MigrationPlan with @AutoTests                         │
+│ - Schemas with @FreezeSchema(version: "X.Y.Z")         │
+│ - MigrationPlan with @TestMigrations                    │
 │ - Generated/scaffolded tests in FreezeRay/Tests/       │
 │ - Frozen fixtures in FreezeRay/Fixtures/               │
 └─────────────────────────────────────────────────────────┘
@@ -300,24 +300,25 @@ swift test --filter FreezeRayTests
 
 **Run:**
 ```bash
-cd TestApp
-swift test
-# OR
-xcodebuild test -scheme TestApp -destination 'platform=iOS Simulator,name=iPhone 16'
+cd FreezeRayTestApp
+xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
-**TestApp Structure:**
+**FreezeRayTestApp Structure:**
 - **Models.swift:** DataV1.User, DataV2.User, DataV3.User+Post
-- **Schemas.swift:** AppSchemaV1/V2/V3 with `@Freeze`, AppMigrations with `@AutoTests`
-- **FreezeRayIntegrationTests.swift:** Calls `__freezeray_freeze_*()`, `__freezeray_check_*()`, etc.
+- **Schemas.swift:** AppSchemaV1/V2/V3 with `@FreezeSchema`, AppMigrations with `@TestMigrations`
+- **FreezeRayTests.swift:** Calls `__freezeray_freeze_*()`, `__freezeray_check_*()`, etc.
+
+**Preferred Simulator:**
+- **iPhone 17** - Always use this simulator to avoid wasting time with non-existent simulator names
 
 ### 3. Manual Testing
 
 **Scenarios to test manually:**
-1. **Fresh freeze:** Delete `TestApp/FreezeRay/`, run tests → fixtures created
+1. **Fresh freeze:** Delete `FreezeRayTestApp/FreezeRay/`, run tests → fixtures created
 2. **Drift detection:** Modify `AppSchemaV1` models, run tests → should fail
 3. **Migration paths:** Verify V1→V3 and V2→V3 migrations work
-4. **Platform compatibility:** Run on both macOS and iOS Simulator
+4. **Platform compatibility:** Run on iOS Simulator (iPhone 17)
 
 ### 4. Test Coverage Goals
 
@@ -353,17 +354,18 @@ xcodebuild test -scheme TestApp -destination 'platform=iOS Simulator,name=iPhone
    ```yaml
    - name: Test on iOS
      run: |
-       cd TestApp
+       cd FreezeRayTestApp
        xcodebuild test \
-         -scheme TestApp \
-         -destination 'platform=iOS Simulator,name=iPhone 16'
+         -project FreezeRayTestApp.xcodeproj \
+         -scheme FreezeRayTestApp \
+         -destination 'platform=iOS Simulator,name=iPhone 17'
    ```
 
 3. **Verify Fixtures (Drift Detection):**
    ```yaml
    - name: Check for uncommitted fixtures
      run: |
-       if [[ -n $(git status --porcelain TestApp/FreezeRay/Fixtures/) ]]; then
+       if [[ -n $(git status --porcelain FreezeRayTestApp/FreezeRay/Fixtures/) ]]; then
          echo "❌ Uncommitted fixtures detected"
          exit 1
        fi
@@ -373,7 +375,7 @@ xcodebuild test -scheme TestApp -destination 'platform=iOS Simulator,name=iPhone
 
 1. Build main package
 2. Run unit tests (fast, no dependencies)
-3. Run integration tests (TestApp)
+3. Run integration tests (FreezeRayTestApp)
 4. Verify no uncommitted changes to fixtures
 
 ### CI Failures
@@ -386,9 +388,12 @@ xcodebuild test -scheme TestApp -destination 'platform=iOS Simulator,name=iPhone
 
 **How to fix:**
 1. Check CI logs for specific error
-2. Reproduce locally: `cd TestApp && swift test`
+2. Reproduce locally: `cd FreezeRayTestApp && xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -destination 'platform=iOS Simulator,name=iPhone 17'`
 3. If drift: create new schema version (don't modify frozen)
-4. If platform issue: check `#if os(macOS)` guards
+4. If platform issue: check `#if os(iOS)` guards
+
+**Preferred Simulator:**
+- **iPhone 17** - Always use this simulator for all testing to avoid wasting time with non-existent simulator names
 
 ---
 
@@ -614,8 +619,8 @@ swift build
 # Run unit tests
 swift test --filter FreezeRayTests
 
-# Run integration tests
-cd TestApp && swift test
+# Run integration tests on FreezeRayTestApp (real Xcode project)
+cd FreezeRayTestApp && xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -destination 'platform=iOS Simulator,name=iPhone 17'
 
 # Clean build artifacts
 swift package clean
@@ -624,11 +629,11 @@ swift package clean
 ### CI Debugging
 ```bash
 # Reproduce CI locally (macOS)
-swift build && swift test && cd TestApp && swift test
+swift build && swift test
 
-# Reproduce CI locally (iOS Simulator)
-cd TestApp
-xcodebuild test -scheme TestApp -destination 'platform=iOS Simulator,name=iPhone 16'
+# Reproduce CI locally (iOS Simulator) - use iPhone 17!
+cd FreezeRayTestApp
+xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
 ### Git Workflow
@@ -640,7 +645,7 @@ git checkout -b feature/my-feature
 git commit -m "Add X functionality for CLI integration"
 
 # Check for uncommitted fixtures
-git status TestApp/FreezeRay/Fixtures/
+git status FreezeRayTestApp/FreezeRay/Fixtures/
 
 # Tag release
 git tag v0.4.0

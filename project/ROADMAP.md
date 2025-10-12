@@ -35,11 +35,14 @@
 - ✅ Fixture extraction from ephemeral test containers
 - ✅ Convention-over-configuration (auto-detect everything)
 - ✅ Versioned fixture filenames
-- 📋 Test scaffolding (drift + migration tests)
+- 🚧 Test scaffolding (drift + migration tests)
+  - ✅ Sprint 2 Phase 1: Macro generates per-version migration functions
+  - 📋 Sprint 2 Phase 2: CLI scaffolds drift test files
+  - 📋 Sprint 2 Phase 3: CLI scaffolds migration test files
 
 **Versions:** v0.4.0 (current)
 
-**Status:** Sprint 1 complete (freeze command), Sprint 2 planned (test scaffolding)
+**Status:** Sprint 1 complete, Sprint 2 Phase 1 complete, Sprint 2 Phase 2 in progress
 
 ---
 
@@ -115,7 +118,11 @@
 
 **Sprint 1 (Complete):** `freezeray freeze` command with fixture extraction
 
-**Sprint 2 (Next):** Test scaffolding for drift detection and migration testing
+**Sprint 2 Phase 1 (Complete):** Macro generates per-version migration functions (`__freezeray_test_migrate_X_to_Y`)
+
+**Sprint 2 Phase 2 (In Progress):** CLI scaffolds drift test files
+
+**Sprint 2 Phase 3 (Planned):** CLI scaffolds migration test files
 
 **After v0.4.0:** Production polish, distribution, documentation
 

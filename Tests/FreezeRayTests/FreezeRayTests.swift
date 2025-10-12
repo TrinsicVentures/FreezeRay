@@ -7,18 +7,18 @@ import Testing
 #if canImport(FreezeRayMacros)
 import FreezeRayMacros
 
-nonisolated(unsafe) let testMacros: [String: Macro.Type] = [
-    "Freeze": FreezeMacro.self,
-    "AutoTests": AutoTestsMacro.self,
+let testMacros: [String: Macro.Type] = [
+    "FreezeSchema": FreezeMacro.self,
+    "TestMigrations": AutoTestsMacro.self,
 ]
 
 @Suite("FreezeRay Macro Tests")
 struct FreezeRayTests {
-    @Test("@Freeze macro generates freeze and check functions")
+    @Test("@FreezeSchema macro generates freeze and check functions")
     func freezeMacroExpansion() throws {
         assertMacroExpansion(
             """
-            @Freeze(version: "1.0.0")
+            @FreezeSchema(version: "1.0.0")
             enum AppSchemaV1: VersionedSchema {
                 static let versionIdentifier = Schema.Version(1, 0, 0)
                 static var models: [any PersistentModel.Type] {
@@ -58,11 +58,11 @@ struct FreezeRayTests {
         )
     }
 
-    @Test("@AutoTests macro generates migration test function")
+    @Test("@TestMigrations macro generates migration test function")
     func autoTestsMacroExpansion() throws {
         assertMacroExpansion(
             """
-            @AutoTests
+            @TestMigrations
             struct AppMigrations: SchemaMigrationPlan {
                 static var schemas: [any VersionedSchema.Type] {
                     [AppSchemaV1.self, AppSchemaV2.self]
@@ -89,11 +89,11 @@ struct FreezeRayTests {
         )
     }
 
-    @Test("@Freeze handles version with multiple dots")
+    @Test("@FreezeSchema handles version with multiple dots")
     func freezeMacroVersionFormatting() throws {
         assertMacroExpansion(
             """
-            @Freeze(version: "2.1.3")
+            @FreezeSchema(version: "2.1.3")
             enum AppSchemaV2: VersionedSchema {
                 static var models: [any PersistentModel.Type] { [] }
             }

@@ -59,7 +59,7 @@ struct SimulatorManager {
         // Using 'test' instead of 'build-for-testing' + 'test-without-building'
         // This ensures the newly generated test file gets compiled
         print("🔹 Building and running freeze test in simulator...")
-        let bundleID = try buildAndRunFreezeTest(
+        _ = try buildAndRunFreezeTest(
             projectPath: projectPath,
             scheme: scheme,
             testTarget: testTarget,

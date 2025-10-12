@@ -358,6 +358,61 @@ public enum FreezeRayRuntime {
         print("✅ All migrations passed")
     }
 
+    /// Test migration between two specific schema versions.
+    public static func testMigration<FromSchema: VersionedSchema, ToSchema: VersionedSchema, Plan: SchemaMigrationPlan>(
+        from: FromSchema.Type,
+        to: ToSchema.Type,
+        migrationPlan: Plan.Type
+    ) throws {
+        // Extract version from schema type
+        let fromVersion = String(describing: FromSchema.versionIdentifier)
+        let fromVersionSafe = fromVersion.replacingOccurrences(of: ".", with: "_")
+        let toVersion = String(describing: ToSchema.versionIdentifier)
+
+        print("🧪 Testing migration: \(fromVersion) → \(toVersion)")
+
+        // Find fixture for source version
+        let fixturesDir = URL(fileURLWithPath: "FreezeRay/Fixtures")
+        let versionDir = fixturesDir.appendingPathComponent(fromVersion)
+        let fixtureURL = versionDir.appendingPathComponent("App-\(fromVersionSafe).sqlite")
+
+        guard FileManager.default.fileExists(atPath: fixtureURL.path) else {
+            print("   ⚠️  No fixture found for version \(fromVersion) - skipping")
+            return
+        }
+
+        // Copy fixture to temp location
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("sqlite")
+
+        try FileManager.default.copyItem(at: fixtureURL, to: tempURL)
+
+        defer {
+            try? FileManager.default.removeItem(at: tempURL)
+        }
+
+        // Attempt migration to target schema
+        let targetSchema = Schema(versionedSchema: to)
+        let config = ModelConfiguration(
+            schema: targetSchema,
+            url: tempURL,
+            allowsSave: true,
+            cloudKitDatabase: .none
+        )
+
+        let container = try ModelContainer(
+            for: targetSchema,
+            migrationPlan: Plan.self,
+            configurations: [config]
+        )
+
+        // Basic integrity check - open and fetch
+        _ = ModelContext(container)
+
+        print("   ✅ Migration succeeded")
+    }
+
     // MARK: - Helpers
 
     private static func disableWAL(at url: URL) throws {

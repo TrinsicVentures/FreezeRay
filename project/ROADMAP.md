@@ -95,6 +95,66 @@
 
 ---
 
+## Phase 6: GUI Application 💎 COMMERCIAL VISION
+
+**Goal:** Professional SwiftData schema management without CLI friction
+
+**Business Model:**
+- **Free tier:** CLI tool (open source, always free)
+- **Paid tier:** GUI application with advanced features
+
+**GUI Application Features:**
+- **Real-time monitoring:** Background daemon watches for schema changes
+- **Visual schema diff:** Side-by-side comparison of frozen vs. current schema
+- **One-click schema locking:** Freeze schemas with a single button click
+- **Schema timeline:** Visual history of all frozen versions
+- **Migration path visualization:** Interactive graph of migration dependencies
+- **CloudKit integration:** Detect CloudKit-incompatible migrations before deploy
+- **Team collaboration:** Share frozen schemas across team members
+- **Continuous validation:** Automatic drift detection in background
+- **Smart notifications:** Alert when schema changes detected
+- **Xcode integration:** Deep links to open relevant files
+
+**CloudKit Features:**
+- Schema compatibility checking for CloudKit sync
+- Detection of custom migrations that break CloudKit ([known bug](https://stackoverflow.com/questions/78710730))
+- Visual warnings for CloudKit-incompatible changes
+- CloudKit schema sync status dashboard
+
+**Why GUI vs. CLI:**
+- **Lower friction:** No terminal commands to remember
+- **Better visualization:** Schema changes are visual, not textual
+- **Proactive monitoring:** Catch issues immediately, not during build
+- **Team-friendly:** Non-technical stakeholders can review schema changes
+- **Professional workflow:** Matches expectations for paid developer tools
+
+**Monetization:**
+- Individual developer: $29/year
+- Team license (5 seats): $99/year
+- Enterprise: Custom pricing
+- All proceeds support continued CLI development
+
+**Distribution:**
+- Mac App Store (for discoverability)
+- Direct download (for power users)
+- Both include CLI tool bundled
+
+**Development Strategy:**
+1. Build CLI to maturity first (v1.0.0+)
+2. Validate market demand and CLI adoption
+3. GUI as separate SwiftUI app (reuses CLI backend)
+4. Launch as paid companion to free CLI
+
+**Target:** v3.0.0+ (post-v1.0 success validation)
+
+**Success Criteria Before Starting GUI:**
+- 1,000+ GitHub stars on CLI repo
+- 50+ production apps using CLI
+- Proven demand for better SwiftData tooling
+- Strong community engagement
+
+---
+
 ## Success Metrics
 
 ### Adoption
@@ -141,4 +201,4 @@
 For detailed implementation notes, see:
 - [ADRs](/project/adr/) - Technical decisions
 - [Sprints](/project/sprints/) - Implementation milestones
-- [README](/README.md) - User documentation
+- [CLAUDE.md](../CLAUDE.md) - Development guide

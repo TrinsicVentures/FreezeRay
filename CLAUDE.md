@@ -1,10 +1,12 @@
 # FreezeRay Development Guide
 
-**Version:** v0.4.0 (CLI-based architecture)
-**Status:** Active Development - Sprint 2 Phase 1 Complete
-**Last Updated:** 2025-10-11
+**Version:** v0.4.0-dev (CLI-based architecture - in development)
+**Status:** Active Development - Sprint 2 Complete (Phases 1-3)
+**Last Updated:** 2025-10-12
 
 This document is the **definitive source of truth** for FreezeRay development, testing, CI/CD, and project organization.
+
+**Note:** All architectural decisions are documented in ADRs (project/adr/). This document provides practical guidance for development.
 
 ---
 
@@ -30,10 +32,10 @@ FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas
 
 ### Current Architecture (v0.4.0)
 
-**Key Insight from CLI-DESIGN.md:** The v0.3.0 macro-only approach has a critical limitation - it requires filesystem write access to the source tree, which doesn't work in iOS simulator tests.
+**Key Insight (see ADR-001):** The v0.3.0 macro-only approach has a critical limitation - it requires filesystem write access to the source tree, which doesn't work in iOS simulator tests.
 
 **Solution:** Split operations into two phases:
-1. **Freeze operation** (explicit, write-heavy) - CLI tool runs tests in simulator, extracts fixtures
+1. **Freeze operation** (explicit, write-heavy) - CLI tool runs tests in simulator, extracts fixtures via /tmp (see ADR-002)
 2. **Validation** (automatic, read-only) - Generated tests load fixtures from bundle
 
 ### Components
@@ -85,32 +87,15 @@ FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas
 
 ### Target State (v0.4.0 - CLI-based)
 
-**See:** [docs/CLI-DESIGN.md](/Users/gk/Projects/Trinsic/FreezeRay/docs/CLI-DESIGN.md) (central source of truth)
+**See:** Architecture documented in project/adr/ and project/sprints/
 
 **Key Changes:**
 1. **CLI-driven freezing:** `freezeray freeze 1.0.0` runs in simulator, extracts fixtures
-2. **Scaffolded tests:** Tests are generated once, user customizes them
+2. **Scaffolded tests:** Tests are generated once, user customizes them (see ADR-005)
 3. **Convention over configuration:** Auto-detect project, schemes, schemas
 4. **Read-only validation:** Tests load fixtures from bundle, no writes needed
 
-### Migration Path: v0.3.0 → v0.4.0
-
-**Phase 1: CLI Implementation**
-- [ ] Implement AST parser (SwiftSyntax) to find `@Freeze` and `@AutoTests`
-- [ ] Implement test generator (scaffolds, not regenerates)
-- [ ] Implement `freezeray freeze` command with simulator orchestration
-- [ ] Update `FreezeRayRuntime` to support custom output directories
-
-**Phase 2: Update Macros**
-- [ ] Change macro behavior: scaffolds tests instead of generating
-- [ ] Update runtime to work in iOS simulator sandbox
-- [ ] Remove auto-regeneration, make tests user-owned
-
-**Phase 3: Documentation & Testing**
-- [ ] Update README for CLI workflow
-- [ ] Convert TestApp to real Xcode project
-- [ ] Add CLI integration tests
-- [ ] Update examples
+**Implementation Status:** See project/sprints/ for current progress and next steps
 
 ---
 
@@ -124,8 +109,6 @@ FreezeRay/                            # Monorepo - Single repository
 │   └── workflows/
 │       └── ci.yml                    # GitHub Actions CI
 │
-├── docs/
-│   └── CLI-DESIGN.md                 # ⚠️ CENTRAL SOURCE OF TRUTH for v0.4.0
 │
 ├── project/
 │   ├── adr/                          # Architecture Decision Records
@@ -149,17 +132,18 @@ FreezeRay/                            # Monorepo - Single repository
 │   │   ├── TestMigrationsMacro.swift # @TestMigrations expansion
 │   │   └── FreezeRayPlugin.swift     # Compiler plugin entry point
 │   │
-│   ├── FreezeRayCLI/                 # ✨ NEW: CLI library (testable)
+│   ├── freezeray-cli/                # CLI library (testable target)
 │   │   ├── Commands/
-│   │   │   └── FreezeCommand.swift   # freeze command implementation
+│   │   │   ├── FreezeCommand.swift   # freeze command implementation
+│   │   │   └── TestScaffolding.swift # Test scaffolding helpers
 │   │   ├── Parser/
 │   │   │   └── MacroDiscovery.swift  # SwiftSyntax AST parsing
 │   │   ├── Simulator/
 │   │   │   └── SimulatorManager.swift # Simulator orchestration
-│   │   └── FreezeRayCLI.swift        # Main CLI entry point
+│   │   └── CLI.swift                 # Main CLI entry point
 │   │
-│   └── freezeray/                    # ✨ NEW: CLI executable (thin wrapper)
-│       └── main.swift                # Just calls FreezeRayCLI.main()
+│   └── freezeray-bin/                # CLI executable (thin wrapper)
+│       └── main.swift                # Thin wrapper calling freezeray-cli
 │
 ├── Tests/
 │   ├── FreezeRayTests/               # Unit tests for macros
@@ -200,9 +184,7 @@ FreezeRay/                            # Monorepo - Single repository
 │
 ├── Package.swift                     # Main package definition (monorepo)
 ├── CLAUDE.md                         # ⚠️ THIS FILE - Dev guide
-├── README.md                         # User-facing documentation
 ├── PLAN.md                           # (Legacy) Original roadmap
-├── CHANGELOG.md                      # Version history
 └── LICENSE                           # MIT License
 ```
 
@@ -216,7 +198,7 @@ FreezeRay/                            # Monorepo - Single repository
 | `TestApp/FreezeRay/Fixtures/` | **FreezeRay CLI** | ✅ Yes | Immutable artifacts |
 | `TestApp/FreezeRay/Tests/` | **User + CLI scaffold** | ✅ Yes | Scaffolded once, user customizes |
 | `TestApp/.build/` | Build system | ❌ No | Gitignored |
-| `docs/CLI-DESIGN.md` | **Architecture decisions** | ✅ Yes | Source of truth |
+| `project/adr/` | **Architecture decisions** | ✅ Yes | Source of truth |
 
 ---
 
@@ -243,27 +225,24 @@ FreezeRay/                            # Monorepo - Single repository
    swift test  # Runs integration tests
    ```
 
-4. **Check conformance to CLI design:**
-   - Review [docs/CLI-DESIGN.md](docs/CLI-DESIGN.md) before making architectural changes
-   - Ensure changes align with v0.4.0 vision
+4. **Check conformance to architecture:**
+   - Review project/adr/ before making architectural changes
+   - Ensure changes align with documented design decisions
 
 ### Adding New Features
 
 **Process:**
-1. Check if feature is in [docs/CLI-DESIGN.md](docs/CLI-DESIGN.md) Phase 1-4 roadmap
-2. If yes: implement according to design
-3. If no: discuss design implications first
-4. Update CHANGELOG.md
+1. Check if feature is in project/adr/ Phase 1-4 roadmap
+2. If yes: implement according to documented design
+3. If no: create ADR to document new design decision
 5. Add tests (unit + integration)
-6. Update README.md if user-facing
+6. Document user-facing features in CLAUDE.md
 
 ### Code Review Checklist
 
-- [ ] Does this align with CLI-DESIGN.md?
+- [ ] Does this align with documented architecture (see project/adr/)?
 - [ ] Are there unit tests?
 - [ ] Does TestApp demonstrate the feature?
-- [ ] Is CHANGELOG.md updated?
-- [ ] Is README.md updated (if user-facing)?
 - [ ] Does it work on both macOS and iOS Simulator?
 
 ---
@@ -448,7 +427,7 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 | v0.1.0 | ✅ Released | Initial macro-based implementation |
 | v0.2.0 | ✅ Released | (skipped) |
 | v0.3.0 | ✅ Released | iOS-native SQLite operations |
-| v0.4.0 | 🚧 In Progress | CLI-based architecture (see CLI-DESIGN.md) |
+| v0.4.0 | 🚧 In Progress | CLI-based architecture (see ADR-001) |
 | v0.5.0 | 📋 Planned | Enhanced validation (check, migrate commands) |
 | v1.0.0 | 🎯 Target | Public release |
 
@@ -456,14 +435,11 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 
 **Before release:**
 - [ ] All tests pass (macOS + iOS)
-- [ ] CHANGELOG.md updated
-- [ ] README.md reflects current features
 - [ ] Version bumped in `Package.swift` (if needed)
 - [ ] Git tag created (`git tag vX.Y.Z`)
 - [ ] TestApp demonstrates all features
 
 **Release steps:**
-1. Update CHANGELOG.md:
    ```markdown
    ## [X.Y.Z] - YYYY-MM-DD
    ### Added
@@ -490,7 +466,6 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 ### Post-Release
 
 - [ ] Announce on GitHub Discussions
-- [ ] Update README.md badges (if needed)
 - [ ] Close milestone issues
 - [ ] Create next milestone
 
@@ -517,7 +492,7 @@ TestApp is the **source of truth test bed** for FreezeRay. It simulates a real u
 
 ### Why Xcode Project?
 
-From CLI-DESIGN.md:
+See ADR-001:
 > "The TestApp should be our source of truth testbed for all local testing, but should ideally be a REAL Xcode project-based app, not just a Swift package, to ensure everything is as realistic as possible."
 
 **Reasons:**
@@ -566,7 +541,7 @@ From CLI-DESIGN.md:
 - Scaffolded tests (generated once) allow user customization
 - Macros still provide type safety and compile-time validation
 
-**See:** [docs/CLI-DESIGN.md § Problem Statement](docs/CLI-DESIGN.md#problem-statement)
+**See:** ADR-001 for full rationale
 
 ### Why Scaffolds Instead of Generated Tests?
 
@@ -578,7 +553,7 @@ From CLI-DESIGN.md:
 - Regenerating tests would overwrite user changes
 - Clear TODO markers guide customization
 
-**See:** [docs/CLI-DESIGN.md § Design Decisions #5](docs/CLI-DESIGN.md#5-tests-are-scaffolds-not-generated)
+**See:** ADR-005 for full rationale
 
 ### Why Convention Over Configuration?
 
@@ -590,7 +565,7 @@ From CLI-DESIGN.md:
 - Reduces friction for new users
 - Less to maintain and document
 
-**See:** [docs/CLI-DESIGN.md § Design Decisions #3](docs/CLI-DESIGN.md#3-convention-over-configuration)
+**See:** ADR-001 for full rationale
 
 ### Why Commit Fixtures to Git?
 
@@ -602,7 +577,7 @@ From CLI-DESIGN.md:
 - Fixtures are small (<1MB typically)
 - Critical for migration testing
 
-**See:** [docs/CLI-DESIGN.md § Design Decisions #1](docs/CLI-DESIGN.md#1-fixtures-committed-to-git)
+**See:** ADR-001 for full rationale
 
 ### Why iOS Simulator for Freezing?
 
@@ -614,7 +589,7 @@ From CLI-DESIGN.md:
 - SwiftData behavior can differ between macOS and iOS
 - Validation tests must run in iOS (read-only from bundle)
 
-**See:** [docs/CLI-DESIGN.md § Implementation Details § Simulator Orchestration](docs/CLI-DESIGN.md#simulator-orchestration)
+**See:** ADR-002 and ADR-003 for implementation details
 
 ### Why Monorepo + Library/Executable Split for CLI?
 
@@ -645,10 +620,8 @@ From CLI-DESIGN.md:
 
 ### Key Documents
 
-1. **docs/CLI-DESIGN.md** - Central source of truth for v0.4.0 architecture
-2. **README.md** - User-facing documentation
-3. **CHANGELOG.md** - Version history
-4. **PLAN.md** - (Legacy) Original roadmap, may be outdated
+1. **project/adr/** - Architecture Decision Records document all technical decisions
+2. **PLAN.md** - (Legacy) Original roadmap, may be outdated
 
 ### External References
 
@@ -660,7 +633,7 @@ From CLI-DESIGN.md:
 
 All major architectural decisions should be documented in:
 1. This file (CLAUDE.md § Design Decisions)
-2. CLI-DESIGN.md (for CLI-specific decisions)
+2. ADRs in project/adr/ (for all architectural decisions)
 3. Git commit messages (with rationale)
 
 ---

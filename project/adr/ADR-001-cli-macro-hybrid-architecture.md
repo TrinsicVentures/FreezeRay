@@ -127,6 +127,6 @@ Use environment variable tricks to disable sandbox restrictions.
 
 ## References
 
-- Original problem: docs/CLI-DESIGN.md § Problem Statement (archived)
 - v0.3.0 limitations: Tests failed in iOS simulator sandbox
 - CLI implementation: project/sprints/v0.4.0-sprint_1-freeze-command.md
+- Fixture extraction solution: ADR-002

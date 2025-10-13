@@ -1,9 +1,5 @@
 # FreezeRay Development Guide
 
-**Version:** v0.4.0-dev (CLI-based architecture - in development)
-**Status:** Active Development - Sprint 2 Complete (Phases 1-3)
-**Last Updated:** 2025-10-12
-
 This document is the **definitive source of truth** for FreezeRay development, testing, CI/CD, and project organization.
 
 **Note:** All architectural decisions are documented in ADRs (project/adr/). This document provides practical guidance for development.
@@ -101,7 +97,7 @@ FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas
 
 ## Project Structure
 
-**Note:** Sprint 2 Phase 2 restructured CLI into library + executable for testability (see ADR-006).
+**Note:** CLI is structured as library + executable for testability (see ADR-006).
 
 ```
 FreezeRay/                            # Monorepo - Single repository
@@ -420,16 +416,15 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 - **MINOR:** New features (new commands, new macros)
 - **PATCH:** Bug fixes, documentation updates
 
-### Current Version Milestones
+### Released Versions
 
-| Version | Status | Description |
-|---------|--------|-------------|
-| v0.1.0 | ✅ Released | Initial macro-based implementation |
-| v0.2.0 | ✅ Released | (skipped) |
-| v0.3.0 | ✅ Released | iOS-native SQLite operations |
-| v0.4.0 | 🚧 In Progress | CLI-based architecture (see ADR-001) |
-| v0.5.0 | 📋 Planned | Enhanced validation (check, migrate commands) |
-| v1.0.0 | 🎯 Target | Public release |
+| Version | Description |
+|---------|-------------|
+| v0.1.0 | Initial macro-based implementation |
+| v0.2.0 | (skipped) |
+| v0.3.0 | iOS-native SQLite operations |
+
+**For planned versions, see:** project/ROADMAP.md and project/sprints/
 
 ### Release Checklist
 

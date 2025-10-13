@@ -240,11 +240,61 @@ end
 
 ## Status
 
-**Accepted** - Implementation in Sprint 2 Phase 2
+**Implemented** - Sprint 2 Phase 2 Complete (2025-10-12)
 
-**Next Steps:**
-1. Create `FreezeRayCLI` library target
-2. Move CLI code from `freezeray-cli` → `FreezeRayCLI`
-3. Create thin `freezeray` executable wrapper
-4. Write comprehensive unit tests
-5. Update CLAUDE.md and Sprint 2 documentation
+## Implementation Summary
+
+### What We Actually Built
+
+**Decision:** Instead of creating a new `FreezeRayCLI` library target, we:
+1. Kept the existing `freezeray-cli` target structure
+2. **Extracted testable logic into `TestScaffolding` helper struct**
+3. `TestScaffolding` is public and can be instantiated by tests
+4. FreezeCommand delegates to TestScaffolding for scaffolding operations
+
+### Why This Approach?
+
+**Original Problem:** ArgumentParser commands can't be instantiated directly in tests.
+
+**Solution:** Extract business logic into separate testable structs:
+- `TestScaffolding` - Contains scaffolding and version logic (testable)
+- `FreezeCommand` - ArgumentParser interface (delegates to TestScaffolding)
+
+**Benefits:**
+- ✅ Achieves testability without full restructure
+- ✅ Cleaner separation of concerns
+- ✅ No migration complexity
+- ✅ All 10 unit tests passing
+
+### Files Created
+
+1. **`Sources/freezeray-cli/Commands/TestScaffolding.swift`**
+   - Public struct with scaffolding helpers
+   - `scaffoldDriftTest()`, `scaffoldMigrationTest()`, `findPreviousVersion()`
+   - Can be instantiated: `let scaffolding = TestScaffolding()`
+
+2. **`Tests/FreezeRayCLITests/FreezeCommandTests.swift`**
+   - 10 comprehensive unit tests (all passing)
+   - Tests semantic versioning logic
+   - Tests file generation and skipping
+   - Tests real I/O operations
+
+### Test Results
+
+```
+􁁛  Test run with 10 tests in 1 suite passed after 0.007 seconds.
+```
+
+**Coverage:**
+- `findPreviousVersion()` - 6 tests (semantic versioning edge cases)
+- `scaffoldDriftTest()` - 2 tests (create new / skip existing)
+- `scaffoldMigrationTest()` - 2 tests (create new / skip existing)
+
+### Architecture Decision
+
+**We chose pragmatism over purity:**
+- Original ADR proposed full library + executable split
+- Actual implementation: helper struct extraction
+- **Result:** Same testability, less complexity
+
+This is a **valid architectural evolution** - we solved the problem with minimal change.

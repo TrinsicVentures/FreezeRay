@@ -10,9 +10,13 @@ let package = Package(
             name: "FreezeRay",
             targets: ["FreezeRay"]
         ),
+        .library(
+            name: "FreezeRayCLI",
+            targets: ["freezeray-cli"]
+        ),
         .executable(
             name: "freezeray",
-            targets: ["freezeray-cli"]
+            targets: ["freezeray-tool"]
         ),
     ],
     dependencies: [
@@ -35,15 +39,21 @@ let package = Package(
             dependencies: ["FreezeRayMacros"]
         ),
 
-        // CLI tool
-        .executableTarget(
+        // CLI library (testable)
+        .target(
             name: "freezeray-cli",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
-            ],
-            path: "Sources/freezeray-cli"
+            ]
+        ),
+
+        // CLI executable (thin wrapper)
+        .executableTarget(
+            name: "freezeray-tool",
+            dependencies: ["freezeray-cli"],
+            path: "Sources/freezeray-bin"
         ),
 
         // Tests
@@ -53,6 +63,15 @@ let package = Package(
                 "FreezeRay",
                 "FreezeRayMacros",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ]
+        ),
+
+        // CLI Tests
+        .testTarget(
+            name: "FreezeRayCLITests",
+            dependencies: [
+                "freezeray-cli",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
     ]

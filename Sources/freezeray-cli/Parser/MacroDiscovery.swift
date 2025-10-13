@@ -11,7 +11,7 @@ struct FreezeAnnotation: Sendable {
     let lineNumber: Int
 }
 
-struct AutoTestsAnnotation: Sendable {
+struct TestMigrationsAnnotation: Sendable {
     let typeName: String
     let filePath: String
     let lineNumber: Int
@@ -21,7 +21,7 @@ struct AutoTestsAnnotation: Sendable {
 
 class MacroDiscoveryVisitor: SyntaxVisitor {
     var freezeAnnotations: [FreezeAnnotation] = []
-    var autoTestsAnnotations: [AutoTestsAnnotation] = []
+    var testMigrationsAnnotations: [TestMigrationsAnnotation] = []
     var currentFile: String = ""
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
@@ -47,7 +47,7 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
                 // Also check for @TestMigrations on enums
                 if attrName == "TestMigrations" || attrName.hasSuffix(".TestMigrations") {
                     let lineNumber = node.position.utf8Offset
-                    autoTestsAnnotations.append(AutoTestsAnnotation(
+                    testMigrationsAnnotations.append(TestMigrationsAnnotation(
                         typeName: node.name.text,
                         filePath: currentFile,
                         lineNumber: lineNumber
@@ -66,7 +66,7 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
 
                 if attrName == "TestMigrations" || attrName.hasSuffix(".TestMigrations") {
                     let lineNumber = node.position.utf8Offset
-                    autoTestsAnnotations.append(AutoTestsAnnotation(
+                    testMigrationsAnnotations.append(TestMigrationsAnnotation(
                         typeName: node.name.text,
                         filePath: currentFile,
                         lineNumber: lineNumber
@@ -103,10 +103,10 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
 /// Discovers all @FreezeSchema and @TestMigrations annotations in the given source paths
 func discoverMacros(in sourcePaths: [String]) throws -> (
     freezeAnnotations: [FreezeAnnotation],
-    autoTestsAnnotations: [AutoTestsAnnotation]
+    testMigrationsAnnotations: [TestMigrationsAnnotation]
 ) {
     var allFreeze: [FreezeAnnotation] = []
-    var allAutoTests: [AutoTestsAnnotation] = []
+    var allTestMigrations: [TestMigrationsAnnotation] = []
 
     for sourcePath in sourcePaths {
         let files = try findSwiftFiles(at: sourcePath)
@@ -120,11 +120,11 @@ func discoverMacros(in sourcePaths: [String]) throws -> (
             visitor.walk(tree)
 
             allFreeze.append(contentsOf: visitor.freezeAnnotations)
-            allAutoTests.append(contentsOf: visitor.autoTestsAnnotations)
+            allTestMigrations.append(contentsOf: visitor.testMigrationsAnnotations)
         }
     }
 
-    return (allFreeze, allAutoTests)
+    return (allFreeze, allTestMigrations)
 }
 
 /// Recursively finds all .swift files in a directory

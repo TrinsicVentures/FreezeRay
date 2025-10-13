@@ -1,9 +1,8 @@
 import ArgumentParser
 import Foundation
 
-@main
-struct FreezeRayCLI: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
+public struct FreezeRayCLI: AsyncParsableCommand {
+    public static let configuration = CommandConfiguration(
         commandName: "freezeray",
         abstract: "Freeze SwiftData schemas for safe production releases",
         version: "0.4.0",
@@ -14,4 +13,6 @@ struct FreezeRayCLI: AsyncParsableCommand {
         ],
         defaultSubcommand: nil
     )
+
+    public init() {}
 }

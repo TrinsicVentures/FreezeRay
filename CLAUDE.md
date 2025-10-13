@@ -116,8 +116,10 @@ FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas
 
 ## Project Structure
 
+**Note:** Sprint 2 Phase 2 restructured CLI into library + executable for testability (see ADR-006).
+
 ```
-FreezeRay/
+FreezeRay/                            # Monorepo - Single repository
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                    # GitHub Actions CI
@@ -125,47 +127,78 @@ FreezeRay/
 ├── docs/
 │   └── CLI-DESIGN.md                 # ⚠️ CENTRAL SOURCE OF TRUTH for v0.4.0
 │
+├── project/
+│   ├── adr/                          # Architecture Decision Records
+│   │   ├── ADR-001-cli-macro-hybrid-architecture.md
+│   │   ├── ADR-002-tmp-export-for-fixture-extraction.md
+│   │   ├── ADR-003-dynamic-test-generation.md
+│   │   ├── ADR-004-versioned-filenames.md
+│   │   ├── ADR-005-test-scaffolding-not-generation.md
+│   │   └── ADR-006-separate-cli-library.md
+│   ├── sprints/                      # Sprint documentation
+│   └── ROADMAP.md                    # Product roadmap
+│
 ├── Sources/
-│   ├── FreezeRay/                    # Public API (macros + runtime)
-│   │   ├── Macros.swift              # @Freeze, @AutoTests declarations
+│   ├── FreezeRay/                    # Public API (macros + runtime) - SPM distribution
+│   │   ├── Macros.swift              # @FreezeSchema, @TestMigrations declarations
 │   │   ├── FreezeRayRuntime.swift    # SQLite operations, freeze/check logic
 │   │   └── FreezeRay.swift           # Module exports
 │   │
-│   └── FreezeRayMacros/              # Macro implementation
-│       ├── FreezeMacro.swift         # @Freeze expansion
-│       ├── AutoTestsMacro.swift      # @AutoTests expansion
-│       └── FreezeRayPlugin.swift     # Compiler plugin entry point
+│   ├── FreezeRayMacros/              # Macro implementation
+│   │   ├── FreezeRayMacro.swift      # @FreezeSchema expansion
+│   │   ├── TestMigrationsMacro.swift # @TestMigrations expansion
+│   │   └── FreezeRayPlugin.swift     # Compiler plugin entry point
+│   │
+│   ├── FreezeRayCLI/                 # ✨ NEW: CLI library (testable)
+│   │   ├── Commands/
+│   │   │   └── FreezeCommand.swift   # freeze command implementation
+│   │   ├── Parser/
+│   │   │   └── MacroDiscovery.swift  # SwiftSyntax AST parsing
+│   │   ├── Simulator/
+│   │   │   └── SimulatorManager.swift # Simulator orchestration
+│   │   └── FreezeRayCLI.swift        # Main CLI entry point
+│   │
+│   └── freezeray/                    # ✨ NEW: CLI executable (thin wrapper)
+│       └── main.swift                # Just calls FreezeRayCLI.main()
 │
 ├── Tests/
-│   └── FreezeRayTests/               # Unit tests for macros
-│       ├── FreezeMacroTests.swift
-│       └── AutoTestsMacroTests.swift
+│   ├── FreezeRayTests/               # Unit tests for macros
+│   │   ├── FreezeMacroTests.swift
+│   │   └── TestMigrationsMacroTests.swift
+│   │
+│   └── FreezeRayCLITests/            # ✨ NEW: Unit tests for CLI
+│       ├── FreezeCommandTests.swift  # Test scaffolding functions
+│       ├── MacroDiscoveryTests.swift # Test AST parsing
+│       └── SimulatorManagerTests.swift
 │
-├── TestApp/                          # ⚠️ Integration test bed
-│   ├── Sources/
-│   │   └── TestApp/
-│   │       ├── Models.swift          # DataV1.User, DataV2.User, etc.
-│   │       └── Schemas.swift         # AppSchemaV1/V2/V3, AppMigrations
-│   ├── Tests/
-│   │   └── TestAppTests/
-│   │       └── FreezeRayIntegrationTests.swift
+├── FreezeRayTestApp/                 # ⚠️ E2E Integration test bed (real Xcode project)
+│   ├── FreezeRayTestApp/             # App target
+│   │   ├── Models.swift              # DataV1.User, DataV2.User, etc.
+│   │   ├── Schemas.swift             # AppSchemaV1/V2/V3, AppMigrations
+│   │   └── ContentView.swift
+│   ├── FreezeRayTestAppTests/        # Test target
+│   │   └── FreezeRayTests.swift      # E2E tests
 │   ├── FreezeRay/                    # Generated artifacts
 │   │   ├── Fixtures/
-│   │   │   ├── v1/
+│   │   │   ├── 1.0.0/                # Versioned fixture directories
 │   │   │   │   ├── App.sqlite
 │   │   │   │   ├── schema.json
 │   │   │   │   ├── schema.sql
 │   │   │   │   └── schema.sha256
-│   │   │   └── v2/
-│   │   │       └── ...
-│   │   └── Tests/                    # (Future) Scaffolded tests
-│   │       ├── SchemaV1_DriftTests.swift
-│   │       └── MigrationPlan_Tests.swift
-│   └── Package.swift
+│   │   │   ├── 2.0.0/
+│   │   │   └── 3.0.0/
+│   │   └── Tests/                    # Scaffolded tests (user-owned)
+│   │       ├── AppSchemaV1_DriftTests.swift
+│   │       ├── AppSchemaV2_DriftTests.swift
+│   │       ├── AppSchemaV3_DriftTests.swift
+│   │       ├── MigrateV1_0_0toV2_0_0_Tests.swift
+│   │       ├── MigrateV1_0_0toV3_0_0_Tests.swift
+│   │       └── MigrateV2_0_0toV3_0_0_Tests.swift
+│   └── FreezeRayTestApp.xcodeproj    # Real Xcode project
 │
 ├── FreezeRay/                        # (Future) Fixture storage for main package tests
 │
-├── Package.swift                     # Main package definition
+├── Package.swift                     # Main package definition (monorepo)
 ├── CLAUDE.md                         # ⚠️ THIS FILE - Dev guide
 ├── README.md                         # User-facing documentation
 ├── PLAN.md                           # (Legacy) Original roadmap
@@ -582,6 +615,29 @@ From CLI-DESIGN.md:
 - Validation tests must run in iOS (read-only from bundle)
 
 **See:** [docs/CLI-DESIGN.md § Implementation Details § Simulator Orchestration](docs/CLI-DESIGN.md#simulator-orchestration)
+
+### Why Monorepo + Library/Executable Split for CLI?
+
+**Decision:** Use monorepo with FreezeRayCLI (library) + freezeray (executable) structure
+
+**Rationale:**
+
+**Monorepo benefits:**
+- Version coordination (CLI and macros must stay in sync)
+- Shared CI/CD (single workflow tests both)
+- Easier development (changes to library immediately testable with CLI)
+- Industry standard (SwiftLint, SwiftFormat, Mint)
+- Distribution compatible (SPM for library, Homebrew for CLI)
+
+**Library + Executable benefits:**
+- Testability: Library targets can be imported by test targets
+- Separation of concerns: Logic (library) vs entry point (executable)
+- Future `freezeray init` command can be unit tested
+- Homebrew formula points to thin executable
+
+**Alternative rejected:** Separate repositories would create version coordination nightmare and go against Swift tooling best practices.
+
+**See:** [project/adr/ADR-006-separate-cli-library.md](project/adr/ADR-006-separate-cli-library.md)
 
 ---
 

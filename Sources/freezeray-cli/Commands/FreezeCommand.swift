@@ -141,23 +141,31 @@ struct FreezeCommand: AsyncParsableCommand {
         let fixturesRootDir = workingDir.appendingPathComponent("FreezeRay/Fixtures")
         if let previousVersion = scaffolding.findPreviousVersion(current: version, fixturesDir: fixturesRootDir) {
             print("🔹 Scaffolding migration test...")
-            // Check if we found a migration plan with @TestMigrations annotation
-            if let migrationPlan = discovery.testMigrationsAnnotations.first {
-                let migrationResult = try scaffolding.scaffoldMigrationTest(
-                    testsDir: testsDir,
-                    migrationPlan: migrationPlan.typeName,
-                    fromVersion: previousVersion,
-                    toVersion: version,
-                    appTarget: appTarget
-                )
 
-                if migrationResult.created {
-                    print("   Created: \(migrationResult.fileName)")
-                } else {
-                    print("   Skipped: \(migrationResult.fileName) (already exists)")
-                }
+            // Find schema type for previous version
+            guard let previousSchema = discovery.freezeAnnotations.first(where: { $0.version == previousVersion }) else {
+                print("   Skipped: Could not find schema type for v\(previousVersion)")
+                return
+            }
+
+            // TODO: Discover migration plan name from SchemaMigrationPlan conformance
+            // For now, use conventional name
+            let migrationPlan = "AppMigrations"
+
+            let migrationResult = try scaffolding.scaffoldMigrationTest(
+                testsDir: testsDir,
+                migrationPlan: migrationPlan,
+                fromVersion: previousVersion,
+                fromSchemaType: previousSchema.typeName,
+                toVersion: version,
+                toSchemaType: freezeAnnotation.typeName,
+                appTarget: appTarget
+            )
+
+            if migrationResult.created {
+                print("   Created: \(migrationResult.fileName)")
             } else {
-                print("   Skipped: No @TestMigrations annotation found")
+                print("   Skipped: \(migrationResult.fileName) (already exists)")
             }
         }
         print("")

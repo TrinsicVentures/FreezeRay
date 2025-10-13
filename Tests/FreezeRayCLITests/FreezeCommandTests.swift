@@ -190,7 +190,9 @@ struct FreezeCommandTests {
             testsDir: tempDir,
             migrationPlan: "AppMigrations",
             fromVersion: "1.0.0",
+            fromSchemaType: "AppSchemaV1",
             toVersion: "2.0.0",
+            toSchemaType: "AppSchemaV2",
             appTarget: "MyApp"
         )
 
@@ -205,7 +207,10 @@ struct FreezeCommandTests {
         let content = try String(contentsOf: filePath)
         #expect(content.contains("import Testing"))
         #expect(content.contains("@testable import MyApp"))
-        #expect(content.contains("AppMigrations.__freezeray_test_migrate_1_0_0_to_2_0_0()"))
+        #expect(content.contains("FreezeRayRuntime.testMigration"))
+        #expect(content.contains("AppSchemaV1.self"))
+        #expect(content.contains("AppSchemaV2.self"))
+        #expect(content.contains("AppMigrations.self"))
         #expect(content.contains("TODO"))
         #expect(content.contains("v1.0.0 → v2.0.0"))
     }
@@ -226,7 +231,9 @@ struct FreezeCommandTests {
             testsDir: tempDir,
             migrationPlan: "AppMigrations",
             fromVersion: "1.0.0",
+            fromSchemaType: "AppSchemaV1",
             toVersion: "2.0.0",
+            toSchemaType: "AppSchemaV2",
             appTarget: "MyApp"
         )
 

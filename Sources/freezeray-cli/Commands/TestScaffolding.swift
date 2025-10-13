@@ -74,7 +74,9 @@ public struct TestScaffolding {
         testsDir: URL,
         migrationPlan: String,
         fromVersion: String,
+        fromSchemaType: String,
         toVersion: String,
+        toSchemaType: String,
         appTarget: String
     ) throws -> ScaffoldResult {
         let fromSafe = fromVersion.replacingOccurrences(of: ".", with: "_")
@@ -103,8 +105,12 @@ public struct TestScaffolding {
         /// This test verifies that the migration path between these versions works correctly.
         @Test("Migrate v\(fromVersion) → v\(toVersion)")
         func testMigrateV\(fromSafe)toV\(toSafe)() throws {
-            // Call the macro-generated per-version migration function
-            try \(migrationPlan).__freezeray_test_migrate_\(fromSafe)_to_\(toSafe)()
+            // Test the migration using FreezeRayRuntime
+            try FreezeRayRuntime.testMigration(
+                from: \(fromSchemaType).self,
+                to: \(toSchemaType).self,
+                migrationPlan: \(migrationPlan).self
+            )
 
             // TODO: Add data integrity checks here
             // Example:

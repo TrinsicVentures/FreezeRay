@@ -37,8 +37,8 @@ We need to separate:
 2. **Macros** - Generate helper methods and structure:
    - `@FreezeSchema(version:)` generates `__freezeray_freeze_*()` method
    - Method is called by CLI-generated temp test
-   - Generates drift detection scaffolds (future)
-   - `@TestMigrations` scaffolds migration test structure (future)
+   - Generates drift detection scaffolds (implemented in Sprint 2)
+   - CLI scaffolds migration test structure calling FreezeRayRuntime directly (implemented in Sprint 2)
 
 3. **Runtime** - Core freeze logic:
    - Creates ModelContainer with schema

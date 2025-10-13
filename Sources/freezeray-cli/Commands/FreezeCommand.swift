@@ -52,9 +52,9 @@ struct FreezeCommand: AsyncParsableCommand {
         // 2. Discover @Freeze(version: "X.X.X") annotations
         print("🔹 Parsing source files for @Freeze(version: \"\(version)\")...")
         let sourcePaths = [workingDir.path]  // TODO: Support custom source paths from config
-        let discovery = try discoverMacros(in: sourcePaths)
+        let freezeAnnotations = try discoverMacros(in: sourcePaths)
 
-        guard let freezeAnnotation = discovery.freezeAnnotations.first(where: { $0.version == version }) else {
+        guard let freezeAnnotation = freezeAnnotations.first(where: { $0.version == version }) else {
             throw FreezeRayError.schemaNotFound(version: version)
         }
 
@@ -143,7 +143,7 @@ struct FreezeCommand: AsyncParsableCommand {
             print("🔹 Scaffolding migration test...")
 
             // Find schema type for previous version
-            guard let previousSchema = discovery.freezeAnnotations.first(where: { $0.version == previousVersion }) else {
+            guard let previousSchema = freezeAnnotations.first(where: { $0.version == previousVersion }) else {
                 print("   Skipped: Could not find schema type for v\(previousVersion)")
                 return
             }

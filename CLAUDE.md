@@ -39,26 +39,26 @@ FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ FreezeRay Package (Swift Package)                       │
-│ - Macros: @FreezeSchema, @TestMigrations               │
+│ - Macros: @FreezeSchema                                │
 │ - Runtime: FreezeRayRuntime (SQLite operations)        │
 │ - Platform: macOS 14+, iOS 17+                         │
 └─────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────┐
-│ freezeray CLI (Future - v0.4.0+)                        │
+│ freezeray CLI (v0.4.0+)                                 │
 │ - Commands: freeze, scaffold, check, migrate, list     │
 │ - Simulator orchestration                               │
 │ - AST parsing with SwiftSyntax                         │
-│ - Test generation                                       │
+│ - Test scaffolding                                      │
 └─────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────┐
 │ User's Xcode Project                                    │
 │ - Schemas with @FreezeSchema(version: "X.Y.Z")         │
-│ - MigrationPlan with @TestMigrations                    │
-│ - Generated/scaffolded tests in FreezeRay/Tests/       │
+│ - SchemaMigrationPlan (no annotation needed)           │
+│ - Scaffolded tests in FreezeRay/Tests/                 │
 │ - Frozen fixtures in FreezeRay/Fixtures/               │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -119,13 +119,12 @@ FreezeRay/                            # Monorepo - Single repository
 │
 ├── Sources/
 │   ├── FreezeRay/                    # Public API (macros + runtime) - SPM distribution
-│   │   ├── Macros.swift              # @FreezeSchema, @TestMigrations declarations
+│   │   ├── Macros.swift              # @FreezeSchema declaration
 │   │   ├── FreezeRayRuntime.swift    # SQLite operations, freeze/check logic
 │   │   └── FreezeRay.swift           # Module exports
 │   │
 │   ├── FreezeRayMacros/              # Macro implementation
-│   │   ├── FreezeRayMacro.swift      # @FreezeSchema expansion
-│   │   ├── TestMigrationsMacro.swift # @TestMigrations expansion
+│   │   ├── FreezeMacro.swift         # @FreezeSchema expansion
 │   │   └── FreezeRayPlugin.swift     # Compiler plugin entry point
 │   │
 │   ├── freezeray-cli/                # CLI library (testable target)
@@ -314,7 +313,7 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 
 **FreezeRayTestApp Structure:**
 - **Models.swift:** DataV1.User, DataV2.User, DataV3.User+Post
-- **Schemas.swift:** AppSchemaV1/V2/V3 with `@FreezeSchema`, AppMigrations with `@TestMigrations`
+- **Schemas.swift:** AppSchemaV1/V2/V3 with `@FreezeSchema`, AppMigrations SchemaMigrationPlan
 - **FreezeRayTests.swift:** Calls `__freezeray_freeze_*()`, `__freezeray_check_*()`, etc.
 
 **Preferred Simulator:**

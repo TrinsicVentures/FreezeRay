@@ -11,9 +11,8 @@
 **Goal:** Prove the concept with macro-based schema freezing
 
 **Outcomes:**
-- ✅ Swift macros generate freeze/check/test methods
+- ✅ Swift macro generates freeze/check methods
   - `@FreezeSchema` generates `__freezeray_freeze_` and `__freezeray_check_`
-  - `@TestMigrations` generates `__freezeray_test_migrations()`
 - ✅ SQLite-based fixture export (iOS native, no shell commands)
 - ✅ SHA256-based drift detection
 - ✅ Cross-platform support (macOS + iOS Simulator)
@@ -35,14 +34,14 @@
 - ✅ Fixture extraction from ephemeral test containers
 - ✅ Convention-over-configuration (auto-detect everything)
 - ✅ Versioned fixture filenames
-- 🚧 Test scaffolding (drift + migration tests)
-  - ✅ Sprint 2 Phase 1: Macro generates per-version migration functions
-  - 📋 Sprint 2 Phase 2: CLI scaffolds drift test files
-  - 📋 Sprint 2 Phase 3: CLI scaffolds migration test files
+- ✅ Test scaffolding (drift + migration tests)
+  - ✅ Sprint 2: Removed @TestMigrations macro, scaffolds tests calling runtime directly
+  - ✅ Sprint 2: CLI scaffolds drift test files
+  - ✅ Sprint 2: CLI scaffolds migration test files
 
 **Versions:** v0.4.0 (current)
 
-**Status:** Sprint 1 complete, Sprint 2 Phase 1 complete, Sprint 2 Phase 2 in progress
+**Status:** Sprint 1 complete, Sprint 2 complete (all phases)
 
 ---
 

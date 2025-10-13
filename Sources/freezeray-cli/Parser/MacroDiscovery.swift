@@ -11,22 +11,14 @@ struct FreezeAnnotation: Sendable {
     let lineNumber: Int
 }
 
-struct TestMigrationsAnnotation: Sendable {
-    let typeName: String
-    let filePath: String
-    let lineNumber: Int
-}
-
 // MARK: - AST Visitor
 
 class MacroDiscoveryVisitor: SyntaxVisitor {
     var freezeAnnotations: [FreezeAnnotation] = []
-    var testMigrationsAnnotations: [TestMigrationsAnnotation] = []
     var currentFile: String = ""
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
         // Look for @FreezeSchema(version: "X.Y.Z") or @FreezeRay.FreezeSchema(version: "X.Y.Z")
-        // Also check for @TestMigrations (MigrationPlan might be an enum)
         for attribute in node.attributes {
             if let attr = attribute.as(AttributeSyntax.self) {
                 let attrName = attr.attributeName.trimmedDescription
@@ -43,39 +35,11 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
                         ))
                     }
                 }
-
-                // Also check for @TestMigrations on enums
-                if attrName == "TestMigrations" || attrName.hasSuffix(".TestMigrations") {
-                    let lineNumber = node.position.utf8Offset
-                    testMigrationsAnnotations.append(TestMigrationsAnnotation(
-                        typeName: node.name.text,
-                        filePath: currentFile,
-                        lineNumber: lineNumber
-                    ))
-                }
             }
         }
         return .visitChildren
     }
 
-    override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
-        // Look for @TestMigrations or @FreezeRay.TestMigrations on structs
-        for attribute in node.attributes {
-            if let attr = attribute.as(AttributeSyntax.self) {
-                let attrName = attr.attributeName.trimmedDescription
-
-                if attrName == "TestMigrations" || attrName.hasSuffix(".TestMigrations") {
-                    let lineNumber = node.position.utf8Offset
-                    testMigrationsAnnotations.append(TestMigrationsAnnotation(
-                        typeName: node.name.text,
-                        filePath: currentFile,
-                        lineNumber: lineNumber
-                    ))
-                }
-            }
-        }
-        return .visitChildren
-    }
 
     private func extractVersion(from attribute: AttributeSyntax) -> String? {
         guard let arguments = attribute.arguments else {
@@ -100,13 +64,9 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
 
 // MARK: - Discovery Function
 
-/// Discovers all @FreezeSchema and @TestMigrations annotations in the given source paths
-func discoverMacros(in sourcePaths: [String]) throws -> (
-    freezeAnnotations: [FreezeAnnotation],
-    testMigrationsAnnotations: [TestMigrationsAnnotation]
-) {
+/// Discovers all @FreezeSchema annotations in the given source paths
+func discoverMacros(in sourcePaths: [String]) throws -> [FreezeAnnotation] {
     var allFreeze: [FreezeAnnotation] = []
-    var allTestMigrations: [TestMigrationsAnnotation] = []
 
     for sourcePath in sourcePaths {
         let files = try findSwiftFiles(at: sourcePath)
@@ -120,11 +80,10 @@ func discoverMacros(in sourcePaths: [String]) throws -> (
             visitor.walk(tree)
 
             allFreeze.append(contentsOf: visitor.freezeAnnotations)
-            allTestMigrations.append(contentsOf: visitor.testMigrationsAnnotations)
         }
     }
 
-    return (allFreeze, allTestMigrations)
+    return allFreeze
 }
 
 /// Recursively finds all .swift files in a directory
@@ -160,7 +119,6 @@ func findSwiftFiles(at path: String) throws -> [String] {
 enum MacroDiscoveryError: Error, CustomStringConvertible {
     case pathNotFound(String)
     case noSchemasFound
-    case noMigrationPlanFound
 
     var description: String {
         switch self {
@@ -168,8 +126,6 @@ enum MacroDiscoveryError: Error, CustomStringConvertible {
             return "Path not found: \(path)"
         case .noSchemasFound:
             return "No @FreezeSchema annotations found in source files"
-        case .noMigrationPlanFound:
-            return "No @TestMigrations annotations found in source files"
         }
     }
 }

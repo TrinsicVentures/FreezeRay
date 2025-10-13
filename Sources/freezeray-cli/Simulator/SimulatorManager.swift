@@ -37,7 +37,7 @@ struct SimulatorManager {
     ///   - testTarget: Test target name
     ///   - schemaType: Schema type name (e.g., "SchemaV1")
     ///   - version: Version string (e.g., "1.0.0")
-    ///   - simulator: Simulator name (e.g., "iPhone 16")
+    ///   - simulator: Simulator name (e.g., "iPhone 17")
     /// - Returns: URL to the extracted fixtures directory
     func runFreezeInSimulator(
         projectPath: String,
@@ -45,7 +45,7 @@ struct SimulatorManager {
         testTarget: String,
         schemaType: String,
         version: String,
-        simulator: String = "iPhone 16"
+        simulator: String = "iPhone 17"
     ) throws -> URL {
         // Validate simulator exists and get its UUID
         let simulatorID = try getSimulatorID(simulator)

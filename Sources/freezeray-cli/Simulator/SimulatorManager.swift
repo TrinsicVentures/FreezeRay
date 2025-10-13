@@ -217,13 +217,33 @@ struct SimulatorManager {
         process.standardOutput = pipe
         process.standardError = errorPipe
 
+        // Read output asynchronously to prevent pipe buffer deadlock
+        var outputData = Data()
+        var errorData = Data()
+
+        let outputHandle = pipe.fileHandleForReading
+        let errorHandle = errorPipe.fileHandleForReading
+
+        // Set up background reading to prevent deadlock
+        let outputQueue = DispatchQueue(label: "com.freezeray.stdout")
+        let errorQueue = DispatchQueue(label: "com.freezeray.stderr")
+
+        outputQueue.async {
+            outputData = outputHandle.readDataToEndOfFile()
+        }
+
+        errorQueue.async {
+            errorData = errorHandle.readDataToEndOfFile()
+        }
+
         try process.run()
         process.waitUntilExit()
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        // Wait for background reads to complete
+        outputQueue.sync {}
+        errorQueue.sync {}
 
-        let output = String(data: data, encoding: .utf8) ?? ""
+        let output = String(data: outputData, encoding: .utf8) ?? ""
         let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
 
         if process.terminationStatus != 0 {
@@ -272,7 +292,7 @@ extension SimulatorManager {
         let manager = SimulatorManager()
         let output = try manager.shell("xcodebuild", projectArg, projectPath, "-list")
 
-        // Parse output to find first scheme
+        // Parse output to find schemes
         // Output format:
         // Schemes:
         //     Clearly
@@ -280,6 +300,7 @@ extension SimulatorManager {
 
         let lines = output.components(separatedBy: .newlines)
         var inSchemesSection = false
+        var schemes: [String] = []
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -289,13 +310,46 @@ extension SimulatorManager {
                 continue
             }
 
-            if inSchemesSection && !trimmed.isEmpty && trimmed != "Schemes:" {
-                // First non-empty line after "Schemes:" is the first scheme
-                return trimmed
+            if inSchemesSection {
+                if trimmed.isEmpty {
+                    // Empty line marks end of schemes section
+                    break
+                } else if !trimmed.isEmpty {
+                    schemes.append(trimmed)
+                }
             }
         }
 
-        throw SimulatorError.invalidOutput("No schemes found in project")
+        guard !schemes.isEmpty else {
+            throw SimulatorError.invalidOutput("No schemes found in project")
+        }
+
+        // Smart scheme selection: prefer app schemes over library/test schemes
+        // Priority:
+        // 1. Schemes ending with "App" (e.g., "FreezeRayTestApp")
+        // 2. Schemes NOT containing Tests/CLI/E2E
+        // 3. First scheme as fallback
+
+        // First, try to find schemes ending with "App"
+        if let appScheme = schemes.first(where: { $0.hasSuffix("App") }) {
+            return appScheme
+        }
+
+        // Second, filter out obvious non-app schemes
+        let appSchemes = schemes.filter { scheme in
+            !scheme.hasSuffix("Tests") &&
+            !scheme.hasSuffix("CLI") &&
+            !scheme.contains("E2E")
+        }
+
+        // If we found app-like schemes, prefer ones with more specific names
+        // (longer names are usually more specific, like "MyProjectTestApp" vs "freezeray")
+        if let appScheme = appSchemes.max(by: { $0.count < $1.count }) {
+            return appScheme
+        }
+
+        // Otherwise, fall back to first scheme (better than nothing)
+        return schemes.first!
     }
 
     /// Infers test target from scheme name (typically {SchemeName}Tests)

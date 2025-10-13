@@ -1,7 +1,7 @@
 import ArgumentParser
 import Foundation
 
-struct FreezeCommand: AsyncParsableCommand {
+struct FreezeCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "freeze",
         abstract: "Freeze a schema version by generating immutable fixture artifacts"
@@ -25,7 +25,7 @@ struct FreezeCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Override output directory for fixtures")
     var output: String?
 
-    func run() async throws {
+    func run() throws {
         print("🔹 FreezeRay v0.4.0")
         print("🔹 Freezing schema version: \(version)")
         print("")

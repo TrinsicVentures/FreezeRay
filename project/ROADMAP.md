@@ -21,7 +21,7 @@
 
 ---
 
-## Phase 2: CLI Architecture 🚧 IN PROGRESS
+## Phase 2: CLI Architecture ✅ COMPLETE
 
 **Goal:** Enable practical usage in real iOS projects
 
@@ -38,10 +38,14 @@
   - ✅ Sprint 2: Removed @TestMigrations macro, scaffolds tests calling runtime directly
   - ✅ Sprint 2: CLI scaffolds drift test files
   - ✅ Sprint 2: CLI scaffolds migration test files
+- ✅ E2E validation passed (2025-10-13)
+  - ✅ All 3 versions frozen successfully
+  - ✅ 3 critical bugs discovered and fixed
+  - ✅ FreezeRayTestApp is a real Xcode project
 
 **Versions:** v0.4.0 (current)
 
-**Status:** Sprint 1 complete, Sprint 2 complete (all phases)
+**Status:** ✅ Complete and validated (Sprint 1 + Sprint 2)
 
 ---
 
@@ -55,7 +59,6 @@
 - CI/CD integration examples
 - Performance optimization for large schemas
 - Error handling & recovery strategies
-- Xcode project conversion (TestApp as real .xcodeproj)
 
 **Target:** v1.0.0
 
@@ -175,15 +178,15 @@
 
 ## Current Focus
 
-**Sprint 1 (Complete):** `freezeray freeze` command with fixture extraction
+**Phase 2 (v0.4.0): ✅ COMPLETE**
+- ✅ Sprint 1: `freezeray freeze` command with fixture extraction
+- ✅ Sprint 2: Test scaffolding (drift + migration tests)
+- ✅ E2E validation passed with 3 critical bugs fixed
 
-**Sprint 2 Phase 1 (Complete):** Macro generates per-version migration functions (`__freezeray_test_migrate_X_to_Y`)
-
-**Sprint 2 Phase 2 (In Progress):** CLI scaffolds drift test files
-
-**Sprint 2 Phase 3 (Planned):** CLI scaffolds migration test files
-
-**After v0.4.0:** Production polish, distribution, documentation
+**Next: Phase 3 (Production Readiness)**
+- Documentation & distribution
+- CI/CD integration
+- Performance optimization
 
 ---
 

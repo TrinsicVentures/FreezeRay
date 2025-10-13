@@ -1,7 +1,7 @@
 import ArgumentParser
 import Foundation
 
-struct ScaffoldCommand: AsyncParsableCommand {
+struct ScaffoldCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "scaffold",
         abstract: "Scaffold a test file for a frozen schema (rarely needed - freeze does this automatically)"
@@ -13,7 +13,7 @@ struct ScaffoldCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Overwrite existing test file")
     var force: Bool = false
 
-    func run() async throws {
+    func run() throws {
         print("🔹 Scaffolding test for version: \(version)")
 
         // TODO: Implement scaffold command

@@ -189,10 +189,10 @@ FreezeRay/                            # Monorepo - Single repository
 |------|-------|------------|-------|
 | `Sources/` | Developers | ✅ Yes | Core library code |
 | `Tests/` | Developers | ✅ Yes | Unit tests |
-| `TestApp/Sources/` | Developers | ✅ Yes | Test schemas |
-| `TestApp/FreezeRay/Fixtures/` | **FreezeRay CLI** | ✅ Yes | Immutable artifacts |
-| `TestApp/FreezeRay/Tests/` | **User + CLI scaffold** | ✅ Yes | Scaffolded once, user customizes |
-| `TestApp/.build/` | Build system | ❌ No | Gitignored |
+| `FreezeRayTestApp/FreezeRayTestApp/` | Developers | ✅ Yes | Test app & schemas |
+| `FreezeRayTestApp/FreezeRay/Fixtures/` | **FreezeRay CLI** | ✅ Yes | Immutable artifacts |
+| `FreezeRayTestApp/FreezeRay/Tests/` | **User + CLI scaffold** | ✅ Yes | Scaffolded once, user customizes |
+| `FreezeRayTestApp/.build/` | Build system | ❌ No | Gitignored |
 | `project/adr/` | **Architecture decisions** | ✅ Yes | Source of truth |
 
 ---
@@ -214,10 +214,10 @@ FreezeRay/                            # Monorepo - Single repository
    swift test
    ```
 
-3. **Test with TestApp:**
+3. **Test with FreezeRayTestApp:**
    ```bash
-   cd TestApp
-   swift test  # Runs integration tests
+   cd FreezeRayTestApp
+   xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -destination 'platform=iOS Simulator,name=iPhone 17'
    ```
 
 4. **Check conformance to architecture:**
@@ -237,7 +237,7 @@ FreezeRay/                            # Monorepo - Single repository
 
 - [ ] Does this align with documented architecture (see project/adr/)?
 - [ ] Are there unit tests?
-- [ ] Does TestApp demonstrate the feature?
+- [ ] Does FreezeRayTestApp demonstrate the feature?
 - [ ] Does it work on both macOS and iOS Simulator?
 
 ---
@@ -293,9 +293,9 @@ swift test --filter FreezeRayTests
 }
 ```
 
-### 2. Integration Tests (TestApp)
+### 2. Integration Tests (FreezeRayTestApp)
 
-**Location:** `TestApp/Tests/TestAppTests/`
+**Location:** `FreezeRayTestApp/FreezeRayTestAppTests/`
 
 **Purpose:** Validate the **entire workflow** with real SwiftData schemas.
 
@@ -431,7 +431,7 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 - [ ] All tests pass (macOS + iOS)
 - [ ] Version bumped in `Package.swift` (if needed)
 - [ ] Git tag created (`git tag vX.Y.Z`)
-- [ ] TestApp demonstrates all features
+- [ ] FreezeRayTestApp demonstrates all features
 
 **Release steps:**
    ```markdown
@@ -469,50 +469,35 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 
 ### Purpose
 
-TestApp is the **source of truth test bed** for FreezeRay. It simulates a real user's Xcode project.
+FreezeRayTestApp is the **source of truth test bed** for FreezeRay. It's a real Xcode iOS project that simulates how users will integrate FreezeRay.
 
-### Requirements
+### Current State (v0.4.0)
 
-**Current State (v0.3.0):**
-- Swift Package (`Package.swift`)
-- Can run tests with `swift test`
-- Works on macOS and iOS Simulator
+✅ **FreezeRayTestApp is already a fully-functional Xcode project:**
+- Real Xcode project (`FreezeRayTestApp.xcodeproj`)
+- iOS app target with SwiftData models
+- Test target (FreezeRayTestAppTests) for validation
+- Runs in iOS Simulator (not macOS)
+- Uses CLI for freezing: `freezeray freeze X.Y.Z`
+- Scaffolded tests run with ⌘U in Xcode
 
-**Target State (v0.4.0+):**
-- **MUST** be a real Xcode project (`.xcodeproj` or `.xcworkspace`)
-- **MUST** have an iOS app target (not just library)
-- **MUST** run in iOS Simulator (not macOS)
-- **SHOULD** mimic real-world project structure
+### Structure
 
-### Why Xcode Project?
+**App Target (FreezeRayTestApp):**
+- `Models.swift` - DataV1.User, DataV2.User, DataV3.User+Post
+- `Schemas.swift` - AppSchemaV1/V2/V3 with `@FreezeSchema`, AppMigrations
+- `ContentView.swift` - Basic SwiftUI app
 
-See ADR-001:
-> "The TestApp should be our source of truth testbed for all local testing, but should ideally be a REAL Xcode project-based app, not just a Swift package, to ensure everything is as realistic as possible."
+**Test Target (FreezeRayTestAppTests):**
+- Manual tests for validation
+- Scaffolded drift tests (in `FreezeRay/Tests/`)
+- Scaffolded migration tests (in `FreezeRay/Tests/`)
 
-**Reasons:**
-1. CLI tool needs to test `xcodebuild` integration
-2. Simulator orchestration requires real app bundle
-3. Bundle resource loading (fixtures) works differently in apps vs SPM
-4. Real users have Xcode projects, not just SPM
+**Generated Artifacts (`FreezeRay/` directory):**
+- `Fixtures/X.Y.Z/` - SQLite, JSON, SQL, checksums
+- `Tests/` - Scaffolded test files (user-owned)
 
-### Migration TODO: SPM → Xcode Project
-
-**Steps to convert TestApp:**
-1. Create new Xcode iOS App project (`TestApp.xcodeproj`)
-2. Move `Sources/TestApp/` → `TestApp/` (app target)
-3. Move `Tests/TestAppTests/` → `TestAppTests/` (test target)
-4. Update `FreezeRay/` artifact location (should be in Xcode project root)
-5. Update CI to use `xcodebuild` instead of `swift test`
-6. Verify tests run in iOS Simulator
-
-**Acceptance Criteria:**
-- [ ] TestApp has `.xcodeproj` file
-- [ ] App target compiles and runs in iOS Simulator
-- [ ] Test target can run with ⌘U in Xcode
-- [ ] Fixtures load from bundle correctly
-- [ ] CI uses `xcodebuild test -scheme TestApp -destination 'platform=iOS Simulator'`
-
-### Test Scenarios in TestApp
+### Test Scenarios
 
 1. **Fresh freeze:** No fixtures exist → tests create them
 2. **Drift detection:** Fixtures exist, schema unchanged → tests pass

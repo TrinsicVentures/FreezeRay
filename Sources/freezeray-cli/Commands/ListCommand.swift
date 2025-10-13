@@ -1,7 +1,7 @@
 import ArgumentParser
 import Foundation
 
-struct ListCommand: AsyncParsableCommand {
+struct ListCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "list",
         abstract: "List all discovered schemas and their freeze status"
@@ -10,7 +10,7 @@ struct ListCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Show file paths and checksums")
     var verbose: Bool = false
 
-    func run() async throws {
+    func run() throws {
         print("📦 Discovering schemas...")
 
         // TODO: Implement list command

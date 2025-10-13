@@ -3,4 +3,4 @@
 
 import freezeray_cli
 
-await FreezeRayCLI.main()
+FreezeRayCLI.main()

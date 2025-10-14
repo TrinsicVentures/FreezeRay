@@ -1,0 +1,66 @@
+---
+title: Introduction
+description: 'Welcome to FreezeRay - SwiftData schema freezing and migration testing'
+---
+
+# Welcome to FreezeRay
+
+FreezeRay is a CLI tool and Swift macro package for freezing SwiftData schemas and validating migration paths. It prevents accidental schema changes from reaching production by creating immutable fixtures.
+
+## Key Features
+
+<Columns cols={2}>
+  <Card title="Schema Freezing" icon="snowflake">
+    Capture immutable snapshots of your SwiftData schemas
+  </Card>
+  <Card title="Migration Testing" icon="code-branch">
+    Automatically test all migration paths between schema versions
+  </Card>
+  <Card title="Drift Detection" icon="triangle-exclamation">
+    Detect accidental schema changes before they reach production
+  </Card>
+  <Card title="CLI + Macros" icon="terminal">
+    Hybrid approach: CLI for freezing, macros for type-safe validation
+  </Card>
+</Columns>
+
+## Quick Start
+
+Get started with FreezeRay in under 5 minutes:
+
+<Steps>
+  <Step title="Install FreezeRay">
+    Add FreezeRay to your project via Swift Package Manager
+  </Step>
+  <Step title="Annotate your schema">
+    Add `@FreezeSchema(version: "1.0.0")` to your schema
+  </Step>
+  <Step title="Freeze your schema">
+    Run `freezeray freeze 1.0.0` to create fixtures
+  </Step>
+  <Step title="Run tests">
+    Generated tests validate schema integrity automatically
+  </Step>
+</Steps>
+
+## Why FreezeRay?
+
+SwiftData makes it easy to evolve your data model, but accidental schema changes can break user data. FreezeRay helps you:
+
+- **Prevent breaking changes** by catching schema drift in CI
+- **Test migrations confidently** with automated migration path validation
+- **Document schema evolution** with versioned fixtures in your repo
+- **Maintain backwards compatibility** across app versions
+
+## Architecture
+
+FreezeRay uses a hybrid CLI + macro approach:
+
+1. **CLI tool** orchestrates schema freezing in iOS Simulator
+2. **Swift macros** provide type-safe schema annotations
+3. **Generated tests** validate schema integrity and migrations
+4. **Fixtures** are committed to your repo for full traceability
+
+<Card title="Ready to get started?" icon="rocket" href="/quickstart">
+  Follow our quickstart guide to freeze your first schema
+</Card>

@@ -22,8 +22,11 @@ jobs:
         swift --version
         xcodebuild -version
 
-    - name: Run test suite
-      run: ./scripts/test.sh
+    - name: Build package
+      run: swift build
+
+    - name: Run unit tests
+      run: swift test
 
     - name: Upload test results
       if: failure()

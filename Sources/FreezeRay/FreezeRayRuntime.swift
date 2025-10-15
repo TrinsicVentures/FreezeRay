@@ -222,12 +222,50 @@ public enum FreezeRayRuntime {
         version: String
     ) throws {
         let versionSafe = version.replacingOccurrences(of: ".", with: "_")
-        let fixtureDir = URL(fileURLWithPath: "FreezeRay/Fixtures/\(version)")
-        let checksumPath = fixtureDir.appendingPathComponent("schema-\(versionSafe).sha256")
+        let checksumFilename = "schema-\(versionSafe).sha256"
+
+        // Try to find fixtures in multiple locations:
+        // 1. Bundle resources (for tests) - check main bundle and test bundle
+        // 2. Relative path from working directory (for CLI/macOS)
+        var fixtureDir: URL?
+
+        // Check all loaded bundles (main app, test bundle, etc.)
+        for bundle in Bundle.allBundles {
+            guard let resourcePath = bundle.resourcePath else { continue }
+
+            // Try different path patterns that Xcode might use for bundled resources
+            let patterns = [
+                "\(resourcePath)/FreezeRay/Fixtures/\(version)",  // In bundle resources
+                "\(resourcePath)/Fixtures/\(version)",             // Without FreezeRay prefix
+            ]
+
+            for pattern in patterns {
+                let testURL = URL(fileURLWithPath: pattern)
+                let testChecksum = testURL.appendingPathComponent(checksumFilename)
+                if FileManager.default.fileExists(atPath: testChecksum.path) {
+                    fixtureDir = testURL
+                    break
+                }
+            }
+            if fixtureDir != nil { break }
+        }
+
+        // Fall back to relative path from working directory
+        if fixtureDir == nil {
+            fixtureDir = URL(fileURLWithPath: "FreezeRay/Fixtures/\(version)")
+        }
+
+        let checksumPath = fixtureDir!.appendingPathComponent(checksumFilename)
 
         guard FileManager.default.fileExists(atPath: checksumPath.path) else {
-            // No sealed version yet - this is okay
-            return
+            // No sealed version yet - this is a fatal error during drift check
+            print("⚠️  No frozen fixture found for v\(version)")
+            print("   Searched in:")
+            print("     - Bundle: \(Bundle.main.resourcePath ?? "none")")
+            print("     - Working directory: \(FileManager.default.currentDirectoryPath)")
+            print("     - Relative path: FreezeRay/Fixtures/\(version)")
+            print("   Run: freezeray freeze \(version)")
+            throw FreezeRayError.custom("No frozen fixture found for v\(version)")
         }
 
         // Read stored checksum
@@ -524,6 +562,7 @@ public enum FreezeRayError: Error, CustomStringConvertible {
     case schemaDrift(version: String, expected: String, actual: String)
     case sqliteCommandFailed(output: String)
     case unsupportedPlatform
+    case custom(String)
 
     public var description: String {
         switch self {
@@ -541,6 +580,8 @@ public enum FreezeRayError: Error, CustomStringConvertible {
             return "❌ sqlite3 command failed: \(output)"
         case .unsupportedPlatform:
             return "❌ FreezeRay only runs on macOS (tests run on macOS even when targeting iOS)"
+        case .custom(let message):
+            return "❌ \(message)"
         }
     }
 }

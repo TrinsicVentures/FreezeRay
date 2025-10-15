@@ -1,5 +1,7 @@
 import ArgumentParser
 import Foundation
+import XcodeProj
+import PathKit
 
 struct FreezeCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -131,14 +133,17 @@ struct FreezeCommand: ParsableCommand {
             version: version
         )
 
+        var createdTestFiles: [String] = []
         if scaffoldResult.created {
             print("   Created: \(scaffoldResult.fileName)")
+            createdTestFiles.append(scaffoldResult.fileName)
         } else {
             print("   Skipped: \(scaffoldResult.fileName) (already exists)")
         }
 
         // 8. Scaffold migration test (if previous version exists)
         let fixturesRootDir = workingDir.appendingPathComponent("FreezeRay/Fixtures")
+        var migrationResult: TestScaffolding.ScaffoldResult?
         if let previousVersion = scaffolding.findPreviousVersion(current: version, fixturesDir: fixturesRootDir) {
             print("🔹 Scaffolding migration test...")
 
@@ -158,7 +163,7 @@ struct FreezeCommand: ParsableCommand {
                     print("   Using: \(migrationPlan.typeName)")
                 }
 
-                let migrationResult = try scaffolding.scaffoldMigrationTest(
+                migrationResult = try scaffolding.scaffoldMigrationTest(
                     testsDir: testsDir,
                     migrationPlan: migrationPlan.typeName,
                     fromVersion: previousVersion,
@@ -168,13 +173,43 @@ struct FreezeCommand: ParsableCommand {
                     appTarget: appTarget
                 )
 
-                if migrationResult.created {
-                    print("   Created: \(migrationResult.fileName)")
-                } else {
-                    print("   Skipped: \(migrationResult.fileName) (already exists)")
+                if let result = migrationResult {
+                    if result.created {
+                        print("   Created: \(result.fileName)")
+                        createdTestFiles.append(result.fileName)
+                    } else {
+                        print("   Skipped: \(result.fileName) (already exists)")
+                    }
                 }
             } else {
                 print("   Skipped: No SchemaMigrationPlan found")
+            }
+        }
+
+        // 9. Add scaffolded test files to Xcode test target (if Xcode project)
+        if projectPath.hasSuffix(".xcodeproj") {
+            do {
+                // Add test files to sources
+                if !createdTestFiles.isEmpty {
+                    try addTestFilesToXcodeProject(
+                        projectPath: projectPath,
+                        testTarget: testTarget,
+                        testFiles: createdTestFiles,
+                        testsDir: testsDir
+                    )
+                    print("   ✅ Added test files to \(testTarget) target")
+                }
+
+                // Add fixtures folder as bundle resource (if not already added)
+                try addFixturesToTestTarget(
+                    projectPath: projectPath,
+                    testTarget: testTarget,
+                    fixturesDir: fixturesDir.deletingLastPathComponent().deletingLastPathComponent() // FreezeRay folder
+                )
+                print("   ✅ Added FreezeRay/Fixtures to test bundle resources")
+            } catch {
+                print("   ⚠️  Could not update Xcode project: \(error)")
+                print("   You may need to manually add files/resources to the test target")
             }
         }
         print("")
@@ -279,6 +314,123 @@ extension FreezeCommand {
         print("   Generated: \(testFilePath.lastPathComponent)")
 
         return testFilePath
+    }
+
+    /// Adds FreezeRay/Fixtures folder to the test target's resources build phase
+    func addFixturesToTestTarget(
+        projectPath: String,
+        testTarget: String,
+        fixturesDir: URL
+    ) throws {
+        let path = Path(projectPath)
+        let xcodeproj = try XcodeProj(path: path)
+        guard let project = xcodeproj.pbxproj.projects.first else {
+            throw FreezeRayError.custom("No project found in .pbxproj")
+        }
+
+        // Find the test target
+        guard let target = project.targets.first(where: { $0.name == testTarget }) else {
+            throw FreezeRayError.custom("Could not find test target: \(testTarget)")
+        }
+
+        // Get or create resources build phase
+        let resourcesBuildPhase: PBXResourcesBuildPhase
+        if let existing = target.buildPhases.first(where: { $0 is PBXResourcesBuildPhase }) as? PBXResourcesBuildPhase {
+            resourcesBuildPhase = existing
+        } else {
+            // Create new resources build phase if none exists
+            resourcesBuildPhase = PBXResourcesBuildPhase()
+            xcodeproj.pbxproj.add(object: resourcesBuildPhase)
+            target.buildPhases.append(resourcesBuildPhase)
+        }
+
+        // Check if FreezeRay folder reference already exists
+        let freezeRayPath = "FreezeRay"
+        let alreadyAdded = resourcesBuildPhase.files?.contains(where: { buildFile in
+            buildFile.file?.path == freezeRayPath || buildFile.file?.name == "FreezeRay"
+        }) ?? false
+
+        if !alreadyAdded {
+            // Create folder reference for FreezeRay directory
+            let folderRef = PBXFileReference(
+                sourceTree: .group,
+                name: "FreezeRay",
+                lastKnownFileType: "folder",
+                path: freezeRayPath
+            )
+            xcodeproj.pbxproj.add(object: folderRef)
+
+            // Create build file
+            let buildFile = PBXBuildFile(file: folderRef)
+            xcodeproj.pbxproj.add(object: buildFile)
+
+            // Add to resources build phase
+            if resourcesBuildPhase.files == nil {
+                resourcesBuildPhase.files = []
+            }
+            resourcesBuildPhase.files?.append(buildFile)
+        }
+
+        // Save modified project
+        try xcodeproj.write(path: path)
+    }
+
+    /// Adds scaffolded test files to the Xcode test target's sources build phase
+    func addTestFilesToXcodeProject(
+        projectPath: String,
+        testTarget: String,
+        testFiles: [String],
+        testsDir: URL
+    ) throws {
+        let path = Path(projectPath)
+        let xcodeproj = try XcodeProj(path: path)
+        guard let project = xcodeproj.pbxproj.projects.first else {
+            throw FreezeRayError.custom("No project found in .pbxproj")
+        }
+
+        // Find the test target
+        guard let target = project.targets.first(where: { $0.name == testTarget }) else {
+            throw FreezeRayError.custom("Could not find test target: \(testTarget)")
+        }
+
+        // Get or create sources build phase
+        guard let sourcesBuildPhase = target.buildPhases.first(where: { $0 is PBXSourcesBuildPhase }) as? PBXSourcesBuildPhase else {
+            throw FreezeRayError.custom("Could not find sources build phase for \(testTarget)")
+        }
+
+        // Add each test file
+        for testFile in testFiles {
+            let testFilePath = "FreezeRay/Tests/\(testFile)"
+
+            // Check if file is already in build phase
+            let alreadyAdded = sourcesBuildPhase.files?.contains(where: { buildFile in
+                buildFile.file?.path == testFilePath || buildFile.file?.name == testFile
+            }) ?? false
+
+            if !alreadyAdded {
+                // Create file reference
+                let fileRef = PBXFileReference(
+                    sourceTree: .group,
+                    name: testFile,
+                    lastKnownFileType: "sourcecode.swift",
+                    path: testFilePath
+                )
+                xcodeproj.pbxproj.add(object: fileRef)
+
+                // Create build file
+                let buildFile = PBXBuildFile(file: fileRef)
+                xcodeproj.pbxproj.add(object: buildFile)
+
+                // Add to sources build phase
+                if sourcesBuildPhase.files == nil {
+                    sourcesBuildPhase.files = []
+                }
+                sourcesBuildPhase.files?.append(buildFile)
+            }
+        }
+
+        // Save modified project
+        try xcodeproj.write(path: path)
     }
 
 }

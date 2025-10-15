@@ -13,39 +13,40 @@ This guide will walk you through freezing your first SwiftData schema with Freez
 - Swift 5.9+
 - iOS 17+ or macOS 14+ project with SwiftData
 - Git repository (for tracking fixtures)
+- npm (for CLI installation)
+- Apple Silicon Mac (Intel users must build from source)
 
-## Installation
+## Install CLI
 
-Add FreezeRay to your project's `Package.swift`:
+Install the FreezeRay CLI via npm:
 
-```swift
-dependencies: [
-    .package(url: "https://github.com/TrinsicVentures/FreezeRay.git", from: "0.4.0")
-]
+```bash
+npm install -g @trinsicventures/freezeray
 ```
 
-Add to your target:
+Verify installation:
 
-```swift
-.target(
-    name: "YourApp",
-    dependencies: ["FreezeRay"]
-)
+```bash
+freezeray --version
 ```
 
 <Info>
-  The CLI tool is currently distributed separately. See the [Installation](/installation) guide for CLI setup.
+  The CLI automatically adds the FreezeRay Swift package to your project when you run `freezeray init`.
 </Info>
 
-## Initialize FreezeRay
+## Initialize Your Project
 
-Run the init command in your project directory:
+Navigate to your Xcode project directory and run:
 
 ```bash
+cd YourProject
 freezeray init
 ```
 
-This creates the `FreezeRay/` directory structure in your project.
+This will:
+- Add FreezeRay package dependency to your `Package.swift`
+- Create the `FreezeRay/` directory structure
+- Set up `.gitignore` rules (if needed)
 
 ## Annotate Your Schema
 

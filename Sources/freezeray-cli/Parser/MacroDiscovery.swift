@@ -11,10 +11,17 @@ struct FreezeAnnotation: Sendable {
     let lineNumber: Int
 }
 
+struct MigrationPlan: Sendable {
+    let typeName: String
+    let filePath: String
+    let lineNumber: Int
+}
+
 // MARK: - AST Visitor
 
 class MacroDiscoveryVisitor: SyntaxVisitor {
     var freezeAnnotations: [FreezeAnnotation] = []
+    var migrationPlans: [MigrationPlan] = []
     var currentFile: String = ""
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
@@ -37,6 +44,22 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
                 }
             }
         }
+
+        // Look for SchemaMigrationPlan conformance
+        if let inheritanceClause = node.inheritanceClause {
+            for inheritedType in inheritanceClause.inheritedTypes {
+                let typeName = inheritedType.type.trimmedDescription
+                if typeName == "SchemaMigrationPlan" {
+                    let lineNumber = node.position.utf8Offset
+                    migrationPlans.append(MigrationPlan(
+                        typeName: node.name.text,
+                        filePath: currentFile,
+                        lineNumber: lineNumber
+                    ))
+                }
+            }
+        }
+
         return .visitChildren
     }
 
@@ -62,11 +85,19 @@ class MacroDiscoveryVisitor: SyntaxVisitor {
     }
 }
 
+// MARK: - Discovery Result
+
+struct DiscoveryResult: Sendable {
+    let freezeAnnotations: [FreezeAnnotation]
+    let migrationPlans: [MigrationPlan]
+}
+
 // MARK: - Discovery Function
 
-/// Discovers all @FreezeSchema annotations in the given source paths
-func discoverMacros(in sourcePaths: [String]) throws -> [FreezeAnnotation] {
+/// Discovers all @FreezeSchema annotations and SchemaMigrationPlan conformances in the given source paths
+func discoverMacros(in sourcePaths: [String]) throws -> DiscoveryResult {
     var allFreeze: [FreezeAnnotation] = []
+    var allMigrationPlans: [MigrationPlan] = []
 
     for sourcePath in sourcePaths {
         let files = try findSwiftFiles(at: sourcePath)
@@ -80,10 +111,14 @@ func discoverMacros(in sourcePaths: [String]) throws -> [FreezeAnnotation] {
             visitor.walk(tree)
 
             allFreeze.append(contentsOf: visitor.freezeAnnotations)
+            allMigrationPlans.append(contentsOf: visitor.migrationPlans)
         }
     }
 
-    return allFreeze
+    return DiscoveryResult(
+        freezeAnnotations: allFreeze,
+        migrationPlans: allMigrationPlans
+    )
 }
 
 /// Recursively finds all .swift files in a directory

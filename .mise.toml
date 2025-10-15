@@ -1,0 +1,58 @@
+# mise configuration for FreezeRay monorepo
+# https://mise.jdx.dev/
+
+[tasks.build]
+description = "Build CLI binary for release"
+run = "swift build -c release --arch arm64"
+
+[tasks.test]
+description = "Run unit tests"
+run = "swift test"
+
+[tasks."test:e2e"]
+description = "Run E2E tests with FreezeRayTestApp"
+run = """
+cd FreezeRayTestApp
+xcodebuild test \
+  -project FreezeRayTestApp.xcodeproj \
+  -scheme FreezeRayTestApp \
+  -destination 'platform=iOS Simulator,name=iPhone 17'
+"""
+
+[tasks."publish:npm"]
+description = "Publish CLI to npm"
+depends = ["build"]
+run = """
+#!/bin/bash
+set -e
+
+echo "📦 Publishing FreezeRay to npm..."
+
+# Copy binary to npm release folder
+mkdir -p release/npm/bin
+cp .build/release/freezeray release/npm/bin/freezeray
+chmod +x release/npm/bin/freezeray
+
+# Verify
+echo "✅ Binary copied ($(du -h release/npm/bin/freezeray | cut -f1))"
+
+# Publish
+cd release/npm
+npm publish --access public
+
+echo "✅ Published to npm!"
+echo ""
+echo "Test with: npm install -g @trinsicventures/freezeray"
+"""
+
+[tasks."docs:dev"]
+description = "Run Mintlify docs locally"
+run = "cd docs && mintlify dev"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = """
+swift package clean
+rm -f release/npm/bin/freezeray
+rm -f release/npm/*.tgz
+"""

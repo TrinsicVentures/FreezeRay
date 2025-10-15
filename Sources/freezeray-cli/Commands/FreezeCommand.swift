@@ -26,7 +26,7 @@ struct FreezeCommand: ParsableCommand {
     var output: String?
 
     func run() throws {
-        print("🔹 FreezeRay v0.4.0")
+        print("🔹 FreezeRay v0.4.2")
         print("🔹 Freezing schema version: \(version)")
         print("")
 
@@ -52,9 +52,9 @@ struct FreezeCommand: ParsableCommand {
         // 2. Discover @Freeze(version: "X.X.X") annotations
         print("🔹 Parsing source files for @Freeze(version: \"\(version)\")...")
         let sourcePaths = [workingDir.path]  // TODO: Support custom source paths from config
-        let freezeAnnotations = try discoverMacros(in: sourcePaths)
+        let discovery = try discoverMacros(in: sourcePaths)
 
-        guard let freezeAnnotation = freezeAnnotations.first(where: { $0.version == version }) else {
+        guard let freezeAnnotation = discovery.freezeAnnotations.first(where: { $0.version == version }) else {
             throw FreezeRayError.schemaNotFound(version: version)
         }
 
@@ -143,29 +143,38 @@ struct FreezeCommand: ParsableCommand {
             print("🔹 Scaffolding migration test...")
 
             // Find schema type for previous version
-            guard let previousSchema = freezeAnnotations.first(where: { $0.version == previousVersion }) else {
+            guard let previousSchema = discovery.freezeAnnotations.first(where: { $0.version == previousVersion }) else {
                 print("   Skipped: Could not find schema type for v\(previousVersion)")
                 return
             }
 
-            // TODO: Discover migration plan name from SchemaMigrationPlan conformance
-            // For now, use conventional name
-            let migrationPlan = "AppMigrations"
+            // Get discovered migration plan (or skip if none found)
+            if let migrationPlan = discovery.migrationPlans.first {
+                if discovery.migrationPlans.count > 1 {
+                    print("   ⚠️  Multiple migration plans found:")
+                    for plan in discovery.migrationPlans {
+                        print("      - \(plan.typeName)")
+                    }
+                    print("   Using: \(migrationPlan.typeName)")
+                }
 
-            let migrationResult = try scaffolding.scaffoldMigrationTest(
-                testsDir: testsDir,
-                migrationPlan: migrationPlan,
-                fromVersion: previousVersion,
-                fromSchemaType: previousSchema.typeName,
-                toVersion: version,
-                toSchemaType: freezeAnnotation.typeName,
-                appTarget: appTarget
-            )
+                let migrationResult = try scaffolding.scaffoldMigrationTest(
+                    testsDir: testsDir,
+                    migrationPlan: migrationPlan.typeName,
+                    fromVersion: previousVersion,
+                    fromSchemaType: previousSchema.typeName,
+                    toVersion: version,
+                    toSchemaType: freezeAnnotation.typeName,
+                    appTarget: appTarget
+                )
 
-            if migrationResult.created {
-                print("   Created: \(migrationResult.fileName)")
+                if migrationResult.created {
+                    print("   Created: \(migrationResult.fileName)")
+                } else {
+                    print("   Skipped: \(migrationResult.fileName) (already exists)")
+                }
             } else {
-                print("   Skipped: \(migrationResult.fileName) (already exists)")
+                print("   Skipped: No SchemaMigrationPlan found")
             }
         }
         print("")

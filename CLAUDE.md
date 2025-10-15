@@ -26,7 +26,7 @@ This document is the **definitive source of truth** for FreezeRay development, t
 
 FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas and validating migration paths. It prevents accidental schema changes from reaching production by creating immutable fixtures.
 
-### Current Architecture (v0.4.0)
+### Current Architecture (v0.4.1)
 
 **Key Insight (see ADR-001):** The v0.3.0 macro-only approach has a critical limitation - it requires filesystem write access to the source tree, which doesn't work in iOS simulator tests.
 
@@ -47,10 +47,11 @@ FreezeRay is a **CLI tool + Swift macro package** for freezing SwiftData schemas
                             ▼
 ┌─────────────────────────────────────────────────────────┐
 │ freezeray CLI (v0.4.0+)                                 │
-│ - Commands: freeze, scaffold, check, migrate, list     │
+│ - Commands: init, freeze                                │
 │ - Simulator orchestration                               │
 │ - AST parsing with SwiftSyntax                         │
 │ - Test scaffolding                                      │
+│ - Migration plan auto-discovery                         │
 └─────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -105,6 +106,14 @@ FreezeRay/                            # Monorepo - Single repository
 │   └── workflows/
 │       └── ci.yml                    # GitHub Actions CI
 │
+├── .mise.toml                        # Task automation config (build, test, publish)
+│
+├── docs/                             # Documentation site (Mintlify)
+│   ├── docs.json                     # Mintlify configuration
+│   ├── introduction.mdx              # Landing page
+│   ├── quickstart.mdx                # Getting started guide
+│   ├── installation.mdx              # Installation instructions
+│   └── ...                           # Additional docs (concepts, CLI reference, guides)
 │
 ├── project/
 │   ├── adr/                          # Architecture Decision Records
@@ -113,7 +122,8 @@ FreezeRay/                            # Monorepo - Single repository
 │   │   ├── ADR-003-dynamic-test-generation.md
 │   │   ├── ADR-004-versioned-filenames.md
 │   │   ├── ADR-005-test-scaffolding-not-generation.md
-│   │   └── ADR-006-separate-cli-library.md
+│   │   ├── ADR-006-separate-cli-library.md
+│   │   └── ADR-007-npm-binary-distribution.md
 │   ├── sprints/                      # Sprint documentation
 │   └── ROADMAP.md                    # Product roadmap
 │
@@ -129,10 +139,11 @@ FreezeRay/                            # Monorepo - Single repository
 │   │
 │   ├── freezeray-cli/                # CLI library (testable target)
 │   │   ├── Commands/
+│   │   │   ├── InitCommand.swift     # init command implementation
 │   │   │   ├── FreezeCommand.swift   # freeze command implementation
 │   │   │   └── TestScaffolding.swift # Test scaffolding helpers
 │   │   ├── Parser/
-│   │   │   └── MacroDiscovery.swift  # SwiftSyntax AST parsing
+│   │   │   └── MacroDiscovery.swift  # SwiftSyntax AST parsing + migration plan discovery
 │   │   ├── Simulator/
 │   │   │   └── SimulatorManager.swift # Simulator orchestration
 │   │   └── CLI.swift                 # Main CLI entry point
@@ -145,10 +156,9 @@ FreezeRay/                            # Monorepo - Single repository
 │   │   ├── FreezeMacroTests.swift
 │   │   └── TestMigrationsMacroTests.swift
 │   │
-│   └── FreezeRayCLITests/            # ✨ NEW: Unit tests for CLI
-│       ├── FreezeCommandTests.swift  # Test scaffolding functions
-│       ├── MacroDiscoveryTests.swift # Test AST parsing
-│       └── SimulatorManagerTests.swift
+│   └── FreezeRayCLITests/            # Unit tests for CLI (22 tests)
+│       ├── FreezeCommandTests.swift  # Test scaffolding + migration plan discovery
+│       └── InitCommandTests.swift    # Test init command helpers
 │
 ├── FreezeRayTestApp/                 # ⚠️ E2E Integration test bed (real Xcode project)
 │   ├── FreezeRayTestApp/             # App target
@@ -175,6 +185,13 @@ FreezeRay/                            # Monorepo - Single repository
 │   │       └── MigrateV2_0_0toV3_0_0_Tests.swift
 │   └── FreezeRayTestApp.xcodeproj    # Real Xcode project
 │
+├── release/                          # Release/distribution configurations
+│   └── npm/                          # npm distribution (see ADR-007)
+│       ├── package.json              # npm package metadata
+│       ├── README.md                 # npm package README
+│       └── bin/
+│           └── freezeray             # Symlink to .build/release/freezeray
+│
 ├── FreezeRay/                        # (Future) Fixture storage for main package tests
 │
 ├── Package.swift                     # Main package definition (monorepo)
@@ -189,10 +206,12 @@ FreezeRay/                            # Monorepo - Single repository
 |------|-------|------------|-------|
 | `Sources/` | Developers | ✅ Yes | Core library code |
 | `Tests/` | Developers | ✅ Yes | Unit tests |
+| `release/npm/package.json` | Developers | ✅ Yes | npm package metadata |
+| `release/npm/bin/` | Build/publish | ❌ No | Binary copied at publish time, gitignored |
 | `FreezeRayTestApp/FreezeRayTestApp/` | Developers | ✅ Yes | Test app & schemas |
 | `FreezeRayTestApp/FreezeRay/Fixtures/` | **FreezeRay CLI** | ✅ Yes | Immutable artifacts |
 | `FreezeRayTestApp/FreezeRay/Tests/` | **User + CLI scaffold** | ✅ Yes | Scaffolded once, user customizes |
-| `FreezeRayTestApp/.build/` | Build system | ❌ No | Gitignored |
+| `.build/` | Build system | ❌ No | Gitignored |
 | `project/adr/` | **Architecture decisions** | ✅ Yes | Source of truth |
 
 ---
@@ -422,6 +441,8 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 | v0.1.0 | Initial macro-based implementation |
 | v0.2.0 | (skipped) |
 | v0.3.0 | iOS-native SQLite operations |
+| v0.4.0 | CLI architecture with freeze/init commands |
+| v0.4.1 | npm distribution + documentation site |
 
 **For planned versions, see:** project/ROADMAP.md and project/sprints/
 
@@ -450,18 +471,31 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
    git push origin master --tags
    ```
 
-3. (Future) Publish CLI binary:
+3. Publish CLI binary to npm:
    ```bash
-   # Build universal binary
-   swift build -c release --arch arm64 --arch x86_64
-   # Upload to GitHub Releases
+   # Use mise task (recommended - handles build + copy + publish)
+   mise run publish:npm
+
+   # Or manually:
+   swift build -c release --arch arm64
+   mkdir -p release/npm/bin
+   cp .build/release/freezeray release/npm/bin/
+   cd release/npm
+   npm publish --access public
+
+   # Test installation
+   npm install -g @trinsicventures/freezeray
+   freezeray --version
    ```
+
+**See ADR-007 for npm distribution strategy (uses copy, not symlink)**
 
 ### Post-Release
 
 - [ ] Announce on GitHub Discussions
 - [ ] Close milestone issues
 - [ ] Create next milestone
+- [ ] Tweet/announce new version
 
 ---
 
@@ -471,7 +505,7 @@ xcodebuild test -project FreezeRayTestApp.xcodeproj -scheme FreezeRayTestApp -de
 
 FreezeRayTestApp is the **source of truth test bed** for FreezeRay. It's a real Xcode iOS project that simulates how users will integrate FreezeRay.
 
-### Current State (v0.4.0)
+### Current State (v0.4.1)
 
 ✅ **FreezeRayTestApp is already a fully-functional Xcode project:**
 - Real Xcode project (`FreezeRayTestApp.xcodeproj`)
@@ -604,6 +638,7 @@ FreezeRayTestApp is the **source of truth test bed** for FreezeRay. It's a real 
 
 ### External References
 
+- [FreezeRay Documentation](https://docs.freezeray.dev) - Official documentation site
 - [SwiftSyntax Documentation](https://github.com/apple/swift-syntax)
 - [Swift Testing Framework](https://github.com/apple/swift-testing)
 - [SwiftData Documentation](https://developer.apple.com/documentation/swiftdata)
@@ -619,7 +654,31 @@ All major architectural decisions should be documented in:
 
 ## Appendix: Common Commands
 
-### Development
+### Development (mise tasks)
+
+FreezeRay uses [mise](https://mise.jdx.dev/) for task automation. See `.mise.toml` for task definitions.
+
+```bash
+# Build CLI binary
+mise run build
+
+# Run unit tests
+mise run test
+
+# Run E2E tests (FreezeRayTestApp)
+mise run test:e2e
+
+# Publish to npm (builds + copies binary + publishes)
+mise run publish:npm
+
+# Run docs locally
+mise run docs:dev
+
+# Clean build artifacts
+mise run clean
+```
+
+### Development (raw commands)
 ```bash
 # Build library
 swift build
@@ -662,6 +721,6 @@ git push origin master --tags
 
 ---
 
-**Maintained by:** Geordie Kaytes (@geordiekaytes)
+**Maintained by:** Geordie Kaytes (@didgeoridoo)
 **Organization:** Trinsic Ventures
 **License:** MIT

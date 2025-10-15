@@ -8,3 +8,8 @@ DerivedData/
 .netrc
 *.xcodeproj
 *~
+
+# npm distribution
+release/npm/bin/
+release/npm/*.tgz
+release/npm/.npmrc

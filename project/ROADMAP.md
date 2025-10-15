@@ -29,7 +29,9 @@
 
 **Outcomes:**
 - ✅ CLI tool (`freezeray freeze <version>`)
+- ✅ CLI initialization (`freezeray init`)
 - ✅ AST-based schema discovery (SwiftSyntax)
+- ✅ Migration plan auto-discovery (no annotation needed)
 - ✅ Simulator orchestration
 - ✅ Fixture extraction from ephemeral test containers
 - ✅ Convention-over-configuration (auto-detect everything)
@@ -42,20 +44,44 @@
   - ✅ All 3 versions frozen successfully
   - ✅ 3 critical bugs discovered and fixed
   - ✅ FreezeRayTestApp is a real Xcode project
+- ✅ npm distribution (Sprint 4)
+  - ✅ Published as `@trinsicventures/freezeray`
+  - ✅ Easy installation: `npm install -g @trinsicventures/freezeray`
+  - ✅ Apple Silicon binary (21MB)
+- ✅ Documentation site (Sprint 4)
+  - ✅ Live at docs.freezeray.dev
+  - ✅ Custom domain configured
+  - ✅ Mintlify platform with auto-deploy
+  - ✅ Documented 3 real SwiftData problems with layered defense
+- ✅ Task automation (Sprint 4)
+  - ✅ mise tasks for build, test, publish
+  - ✅ Centralized workflow management
 
-**Versions:** v0.4.0 (current)
+**Versions:** v0.4.0 - v0.4.1
 
-**Status:** ✅ Complete and validated (Sprint 1 + Sprint 2)
+**Status:** ✅ Complete and validated (Sprints 1-4)
 
 ---
 
-## Phase 3: Production Readiness 📋 PLANNED
+## Phase 3: Production Readiness 🚧 IN PROGRESS
 
 **Goal:** Battle-tested tool ready for real apps
 
-**Outcomes:**
-- Pre-built binaries (Homebrew, GitHub Releases)
-- Comprehensive documentation & video walkthrough
+**Completed:**
+- ✅ Documentation site (docs.freezeray.dev) - Live with basic content
+- ✅ npm distribution (@trinsicventures/freezeray)
+
+**Remaining:**
+- Documentation content (fill placeholder pages)
+  - Concepts pages (schema-freezing.mdx, migration-testing.mdx, drift-detection.mdx)
+  - CLI reference (init.mdx, freeze.mdx)
+  - Guides (first-freeze.mdx, testing-migrations.mdx, ci-integration.mdx)
+  - Macro reference (freeze-schema.mdx)
+- Custom branding for docs site
+  - Replace Mintlify logo with FreezeRay logo
+  - Custom theme colors beyond defaults
+- Pre-built binaries (Homebrew formula, GitHub Releases)
+- Video walkthrough
 - CI/CD integration examples
 - Performance optimization for large schemas
 - Error handling & recovery strategies
@@ -178,15 +204,20 @@
 
 ## Current Focus
 
-**Phase 2 (v0.4.0): ✅ COMPLETE**
+**Phase 2 (v0.4.0 - v0.4.1): ✅ COMPLETE**
 - ✅ Sprint 1: `freezeray freeze` command with fixture extraction
 - ✅ Sprint 2: Test scaffolding (drift + migration tests)
+- ✅ Sprint 3: `freezeray init` command with auto-detection polish
+- ✅ Sprint 4: Documentation site + npm distribution
 - ✅ E2E validation passed with 3 critical bugs fixed
 
-**Next: Phase 3 (Production Readiness)**
-- Documentation & distribution
-- CI/CD integration
-- Performance optimization
+**Phase 3 (Production Readiness): 🚧 IN PROGRESS**
+- ✅ Documentation site live (docs.freezeray.dev)
+- ✅ npm distribution (@trinsicventures/freezeray)
+- Next: Fill documentation content (placeholder pages)
+- Next: Custom branding (logo, theme)
+- Next: Homebrew formula
+- Next: CI/CD integration examples
 
 ---
 

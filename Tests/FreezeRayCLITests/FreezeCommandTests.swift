@@ -244,4 +244,137 @@ struct FreezeCommandTests {
         let content = try String(contentsOf: filePath)
         #expect(content == "// Existing migration test")
     }
+
+    // MARK: - Migration Plan Discovery Tests
+
+    @Test("discoverMacros finds SchemaMigrationPlan conformance")
+    func testDiscoverMacros_FindsMigrationPlan() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // Create a test Swift file with both @FreezeSchema and SchemaMigrationPlan
+        let testFile = tempDir.appendingPathComponent("Schemas.swift")
+        let testContent = """
+        import SwiftData
+        import FreezeRay
+
+        @FreezeSchema(version: "1.0.0")
+        enum AppSchemaV1: VersionedSchema {
+            static let versionIdentifier = Schema.Version(1, 0, 0)
+        }
+
+        @FreezeSchema(version: "2.0.0")
+        enum AppSchemaV2: VersionedSchema {
+            static let versionIdentifier = Schema.Version(2, 0, 0)
+        }
+
+        enum AppMigrations: SchemaMigrationPlan {
+            static var schemas: [any VersionedSchema.Type] {
+                [AppSchemaV1.self, AppSchemaV2.self]
+            }
+        }
+        """
+        try testContent.write(to: testFile, atomically: true, encoding: .utf8)
+
+        let result = try discoverMacros(in: [tempDir.path])
+
+        // Should find both freeze annotations
+        #expect(result.freezeAnnotations.count == 2)
+        #expect(result.freezeAnnotations.contains(where: { $0.version == "1.0.0" }))
+        #expect(result.freezeAnnotations.contains(where: { $0.version == "2.0.0" }))
+
+        // Should find the migration plan
+        #expect(result.migrationPlans.count == 1)
+        #expect(result.migrationPlans.first?.typeName == "AppMigrations")
+    }
+
+    @Test("discoverMacros handles files without migration plan")
+    func testDiscoverMacros_NoMigrationPlan() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // Create a test Swift file with only @FreezeSchema
+        let testFile = tempDir.appendingPathComponent("Schemas.swift")
+        let testContent = """
+        import SwiftData
+        import FreezeRay
+
+        @FreezeSchema(version: "1.0.0")
+        enum AppSchemaV1: VersionedSchema {
+            static let versionIdentifier = Schema.Version(1, 0, 0)
+        }
+        """
+        try testContent.write(to: testFile, atomically: true, encoding: .utf8)
+
+        let result = try discoverMacros(in: [tempDir.path])
+
+        // Should find freeze annotation
+        #expect(result.freezeAnnotations.count == 1)
+
+        // Should not find any migration plans
+        #expect(result.migrationPlans.isEmpty)
+    }
+
+    @Test("discoverMacros handles multiple migration plans")
+    func testDiscoverMacros_MultipleMigrationPlans() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // Create test Swift files with multiple migration plans (edge case)
+        let testFile1 = tempDir.appendingPathComponent("Migrations1.swift")
+        let testContent1 = """
+        import SwiftData
+
+        enum AppMigrations: SchemaMigrationPlan {
+            static var schemas: [any VersionedSchema.Type] { [] }
+        }
+        """
+        try testContent1.write(to: testFile1, atomically: true, encoding: .utf8)
+
+        let testFile2 = tempDir.appendingPathComponent("Migrations2.swift")
+        let testContent2 = """
+        import SwiftData
+
+        enum LegacyMigrations: SchemaMigrationPlan {
+            static var schemas: [any VersionedSchema.Type] { [] }
+        }
+        """
+        try testContent2.write(to: testFile2, atomically: true, encoding: .utf8)
+
+        let result = try discoverMacros(in: [tempDir.path])
+
+        // Should find both migration plans
+        #expect(result.migrationPlans.count == 2)
+        #expect(result.migrationPlans.contains(where: { $0.typeName == "AppMigrations" }))
+        #expect(result.migrationPlans.contains(where: { $0.typeName == "LegacyMigrations" }))
+    }
+
+    @Test("discoverMacros finds @FreezeRay.FreezeSchema fully qualified syntax")
+    func testDiscoverMacros_FullyQualifiedMacro() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // Create test file with fully qualified macro syntax
+        let testFile = tempDir.appendingPathComponent("Schemas.swift")
+        let testContent = """
+        import SwiftData
+
+        @FreezeRay.FreezeSchema(version: "1.0.0")
+        enum AppSchemaV1: VersionedSchema {
+            static let versionIdentifier = Schema.Version(1, 0, 0)
+        }
+        """
+        try testContent.write(to: testFile, atomically: true, encoding: .utf8)
+
+        let result = try discoverMacros(in: [tempDir.path])
+
+        // Should find the freeze annotation even with fully qualified syntax
+        #expect(result.freezeAnnotations.count == 1)
+        #expect(result.freezeAnnotations.first?.version == "1.0.0")
+        #expect(result.freezeAnnotations.first?.typeName == "AppSchemaV1")
+    }
 }

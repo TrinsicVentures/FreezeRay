@@ -43,14 +43,87 @@ Get started with FreezeRay in under 5 minutes:
   </Step>
 </Steps>
 
-## Why FreezeRay?
+## The Problems FreezeRay Solves
 
-SwiftData makes it easy to evolve your data model, but accidental schema changes can break user data. FreezeRay helps you:
+### 1. Inscrutable Error Messages
 
-- **Prevent breaking changes** by catching schema drift in CI
-- **Test migrations confidently** with automated migration path validation
-- **Document schema evolution** with versioned fixtures in your repo
-- **Maintain backwards compatibility** across app versions
+SwiftData crashes with cryptic errors that are hard to diagnose:
+
+```
+Cannot use staged migration with an unknown model version
+```
+
+```
+Persistent store migration failed, missing source managed object model
+```
+
+**Root causes:**
+- Accidentally modifying shipped schema versions
+- Not including all models from previous schemas
+- Changing schema between builds
+
+**How FreezeRay helps:** Checksum-based drift detection catches schema changes BEFORE they cause SwiftData crashes, giving you clear, actionable messages:
+
+```
+❌ Schema drift detected in sealed version 1.0.0
+Expected checksum: 0cc298858e409d8b...
+Actual checksum:   26d70c10e9febf7f...
+→ Sealed schemas are immutable - create a new schema version instead.
+```
+
+### 2. Production Crashes (Not Caught in Testing)
+
+**The silent killer:** Fresh installs work fine in testing, existing users crash on app launch.
+
+When you modify a shipped `VersionedSchema`, SwiftData's internal hash no longer matches. Fresh simulator tests don't catch this—they skip migration entirely and install the current schema from scratch. But real users with existing databases crash immediately.
+
+**How FreezeRay helps:** Frozen fixtures are real SQLite databases from shipped versions. Migration tests actually load these databases and attempt migration, forcing any crashes to happen in your test suite instead of production:
+
+```swift
+@Test func testMigrateV1toV2() throws {
+    // Loads the REAL v1.0.0 database and attempts migration
+    try FreezeRayRuntime.testMigration(
+        from: AppSchemaV1.self,
+        to: AppSchemaV2.self,
+        migrationPlan: AppMigrations.self
+    )
+}
+```
+
+If your migration is broken, you get the crash in tests where you can debug it.
+
+### 3. Silent Data Loss
+
+**The worst kind of bug:** Migration succeeds without errors or crashes, but data is corrupted or lost.
+
+- Non-optional properties added without defaults → undefined behavior
+- Transformable properties that change shape → old data fails to decode, becomes nil
+- Properties removed → user data silently dropped
+- Type conversions fail silently
+
+**How FreezeRay helps:** Scaffolded migration tests let you add custom validation to check data integrity:
+
+```swift
+@Test func testMigrateV1toV2() throws {
+    try FreezeRayRuntime.testMigration(
+        from: AppSchemaV1.self,
+        to: AppSchemaV2.self,
+        migrationPlan: AppMigrations.self
+    )
+
+    // TODO: Verify record counts match
+    // TODO: Check required fields preserved
+    // TODO: Validate relationships intact
+}
+```
+
+## Layered Defense
+
+FreezeRay provides three layers of protection:
+
+1. **Checksums** (fast, clear errors) - Catches drift before SwiftData crashes
+2. **Real migration tests** (forces crashes in tests) - Better to crash in CI than production
+3. **Custom validation** (user-defined) - Ensures data integrity after migration
 
 ## Architecture
 
